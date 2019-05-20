@@ -20,6 +20,7 @@ import abc
 import math
 import numpy as np
 import sympy
+import tensorflow as tf
 
 from cirq import value, protocols
 from cirq.ops import raw_types
@@ -307,7 +308,7 @@ class EigenGate(raw_types.Gate):
             return NotImplemented
         e = cast(float, self._exponent)
         return np.sum([
-            component * 1j**(
+            tf.cast(component, tf.complex) * 1j**(
                     2 * e * (half_turns + self._global_shift))
             for half_turns, component in self._eigen_components()
         ], axis=0)
