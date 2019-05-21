@@ -11,12 +11,15 @@ LOCAL TODO:
 """
 
 
-class BaseTFGate:
+class BaseTFGate(cirq.SupportsUnitary, cirq.SupportsApplyUnitary):
     """
     Main wrapper for a cirq gate. The purpose of this object is to
         1) wrap an initialized cirq gate (that may include placeholders)
         2) divert further processing away from the cirq native pipeline,
                 towards tensorflow native evaluation
+
+    Meanwhile, this should be generally compatible with cirq protocols and
+    operations
     """
 
 
@@ -26,9 +29,19 @@ class BaseTFGate:
 
     def _apply_unitary_(self, state: State):
         """Apply the action of this gate upon a state"""
+
+        return NotImplemented
+        # TODO: tf implementation of eigenvalue shortcut.
         indices = state.qubits
         tensor = tf.matmul(self._tensor, state._tensor, indices)
         return State(tensor, state.qubits)
+
+    @property
+    def _has_unitary_(self):
+        return True
+
+    def _unitary_(self):
+        return self._tensor
 
 
 class WrapYPowGate(BaseTFGate):
