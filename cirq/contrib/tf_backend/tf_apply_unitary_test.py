@@ -23,44 +23,60 @@ TEST_GATES = [
 TEST_CIRCUIT = cirq.Circuit.from_ops(TEST_GATES)
 
 
-def test_apply_unitary_presence_absence():
-    m = np.diag([1, -1])
+m = tf.cast(tf.diag([1, -1]), tf.complex64)
 
-    class HasUnitary:
-        def _unitary_(self) -> np.ndarray:
-            return m
+class HasUnitary:
+    def _unitary_(self) -> tf.Tensor:
+        return m
 
-    class HasApplyReturnsNotImplementedButHasUnitary:
-        def _apply_unitary_(self, args: ApplyTFUnitaryArgs):
-            return NotImplemented
+class HasApplyReturnsNotImplementedButHasUnitary:
+    def _apply_unitary_(self, args: ApplyTFUnitaryArgs):
+        return NotImplemented
 
-        def _unitary_(self) -> np.ndarray:
-            return m
+    def _unitary_(self) -> tf.Tensor:
+        return m
 
-    class HasApplyOutputInBuffer:
-        def _apply_unitary_(self, args: ApplyTFUnitaryArgs) -> np.ndarray:
-            zero = args.subspace_index(0)
-            one = args.subspace_index(1)
-            args.available_buffer[zero] = args.target_tensor[zero]
-            args.available_buffer[one] = -args.target_tensor[one]
-            return args.available_buffer
+class HasApplyOutputInBuffer:
+    """Enforce control dependencies during buffer usage."""
+    def _apply_unitary_(self, args: ApplyTFUnitaryArgs) -> tf.Tensor:
+        zero = args.subspace_index(0)
+        one = args.subspace_index(1)
+        inds = [zero, one]
+        ref0 = args.target_tensor[zero]
+        ref1 = tf.scalar_mul(-1, args.target_tensor[one])
+        refs = [ref0, ref1]
+        x = args.available_buffer
+        with tf.control_dependencies([x[inds[i]].assign(refs[i]) for i in range(2)]): # should give the list of slice assignment here
+            x = tf.identity(x) #convert to a tensor
+        return x
 
-    class HasApplyMutateInline:
-        def _apply_unitary_(self, args: ApplyTFUnitaryArgs) -> np.ndarray:
-            one = args.subspace_index(1)
-            args.target_tensor[one] *= -1
-            return args.target_tensor
+class HasApplyMutateInline:
+    """Promotion to variable for inline mutation."""
+    def _apply_unitary_(self, args: ApplyTFUnitaryArgs) -> tf.Tensor:
+        # FIXME: NOT SURE IF THIS IS GOING TO TURN OUT WELL...
+        one = [args.subspace_index(1)]
+        print(one[0])
+        ref1 = [tf.scalar_mul(-1, args.target_tensor[one[0]])]
+        x = tf.Variable(args.target_tensor)
+        x = x[one[0]].assign(ref1[0])
+        return x
 
-    passes = [
-        HasUnitary(),
-        HasApplyReturnsNotImplementedButHasUnitary(),
-        HasApplyOutputInBuffer(),
-        HasApplyMutateInline(),
-    ]
 
-    def make_input():
-        return np.ones((2, 2))
+passes = [
+    HasUnitary(),
+    HasApplyReturnsNotImplementedButHasUnitary(),
+    HasApplyOutputInBuffer(),
+    HasApplyMutateInline(),
+]
 
+
+def make_input():
+    return tf.cast(tf.ones((2, 2)), tf.complex64)
+
+
+def test_apply_tf_unitary():
+
+    buf = tf.Variable(tf.zeros((2, 2), dtype=tf.complex64))
     def assert_works(val):
         expected_outputs = [
             np.array([1, 1, -1, -1]).reshape((2, 2)),
@@ -69,11 +85,14 @@ def test_apply_unitary_presence_absence():
         for axis in range(2):
             result = tf_apply_unitary(
                 val, ApplyTFUnitaryArgs(make_input(), buf, [axis]))
-            np.testing.assert_allclose(result, expected_outputs[axis])
 
-    buf = np.empty(shape=(2, 2), dtype=np.complex128)
+            sess.run(tf.global_variables_initializer())
+            result = sess.run(result)
+            np.testing.assert_allclose(result, expected_outputs[axis])
+            print(f"{val} works")
 
     for s in passes:
+        sess = tf.Session()
         assert_works(s)
         assert tf_apply_unitary(
             s,

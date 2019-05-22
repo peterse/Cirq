@@ -9,7 +9,7 @@ from typing import (
 )
 import numpy as np
 import tensorflow as tf
-from typing_extensions import Protocol, _TSlice
+from typing_extensions import Protocol
 
 from cirq import linalg
 from cirq.protocols.unitary import unitary
@@ -25,11 +25,64 @@ from cirq.type_workarounds import NotImplementedType
 RaiseTypeErrorIfNotProvided = np.array([])  # type: np.ndarray
 
 TDefault = TypeVar('TDefault')
+_TSliceAtom = Union[int, slice, 'ellipsis']
+_TSlice = Union[_TSliceAtom, Sequence[_TSliceAtom]]
 
 
 TF_INDEX_MAPPINGS = string.ascii_lowercase
 def tf_index_map(inds):
-    return [TF_INDEX_MAPPINGS[i] for i in inds]
+    return "".join([TF_INDEX_MAPPINGS[i] for i in inds])
+
+
+class ApplyTFUnitaryArgs:
+    """
+    Basic overwrite of cirq.ApplyUnitaryArgs with correct type hints.
+    """
+
+    def __init__(self,
+                 target_tensor: tf.Tensor,
+                 available_buffer: np.ndarray,
+                 axes: Iterable[int]):
+        """
+        Args:
+            target_tensor: The input tensor that needs to be left-multiplied by
+                the unitary effect of the receiving object. The tensor will
+                have the shape (2, 2, 2, ..., 2). It usually corresponds to
+                a multi-qubit superposition, but it could also be a multi-qubit
+                unitary transformation or some other concept.
+            available_buffer: Pre-allocated workspace with the same shape
+                as the target tensor.
+            axes: Which axes the unitary effect is being applied to (e.g. the
+                qubits that the gate is operating on).
+        """
+        self.target_tensor = target_tensor
+        self.available_buffer = available_buffer
+        self.axes = tuple(axes)
+
+    def subspace_index(self, little_endian_bits_int: int
+                       ) -> Tuple[Union[slice, int, 'ellipsis'], ...]:
+        """An index for the subspace where the target axes equal a value.
+        Args:
+            little_endian_bits_int: The desired value of the qubits at the
+                targeted `axes`, packed into an integer. The least significant
+                bit of the integer is the desired bit for the first axis, and
+                so forth in increasing order.
+        Returns:
+            A value that can be used to index into `target_tensor` and
+            `available_buffer`, and manipulate only the part of Hilbert space
+            corresponding to a given bit assignment.
+        Example:
+            If `target_tensor` is a 4 qubit tensor and `axes` is `[1, 3]` and
+            then this method will return the following when given
+            `little_endian_bits=0b01`:
+                `(slice(None), 0, slice(None), 1, Ellipsis)`
+            Therefore the following two lines would be equivalent:
+                args.target_tensor[args.subspace_index(0b01)] += 1
+                args.target_tensor[:, 0, :, 1] += 1
+        """
+
+        return linalg.slice_for_qubits_equal_to(self.axes,
+                                                little_endian_bits_int)
 
 
 def tf_targeted_left_multiply(left_matrix:np.ndarray,
@@ -73,134 +126,12 @@ def tf_targeted_left_multiply(left_matrix:np.ndarray,
         output_indices[t] = w
 
     all_indices = set(input_indices + data_indices + tuple(output_indices))
+    input_strip = tf_index_map(input_indices)
+    target_strip = tf_index_map(data_indices)
+    output_keep = tf_index_map(output_indices)
+    einsum_str = f"{input_strip},{target_strip}->{output_keep}"
 
-    return np.einsum(left_matrix, input_indices,
-                     right_target, data_indices,
-                     output_indices,
-                     # We would prefer to omit 'optimize=' (it's faster),
-                     # but this is a workaround for a bug in numpy:
-                     #     https://github.com/numpy/numpy/issues/10926
-                     optimize=len(all_indices) >= 26,
-                     # And this is workaround for *another* bug!
-                     # Supposed to be able to just say 'old=old'.
-                     **({'out': out} if out is not None else {}))
-
-
-
-def tf_apply_matrix_to_slices(
-        target: np.ndarray,
-        matrix: np.ndarray,
-        slices: List[_TSlice],
-        *,
-        out: Optional[np.ndarray] = None) -> np.ndarray:
-    """Left-multiplies an NxN matrix onto N slices of a numpy array.
-
-    Example:
-        The 4x4 matrix of a fractional SWAP gate can be expressed as
-
-           [ 1       ]
-           [   X**t  ]
-           [       1 ]
-
-        Where X is the 2x2 Pauli X gate and t is the power of the swap with t=1
-        being a full swap. X**t is a power of the Pauli X gate's matrix.
-        Applying the fractional swap is equivalent to applying a fractional X
-        within the inner 2x2 subspace; the rest of the matrix is identity. This
-        can be expressed using `apply_matrix_to_slices` as follows:
-
-            def fractional_swap(target):
-                assert target.shape == (4,)
-                return apply_matrix_to_slices(
-                    target=target,
-                    matrix=cirq.unitary(cirq.X**t),
-                    slices=[1, 2]
-                )
-
-    Args:
-        target: The input array with slices that need to be left-multiplied.
-        matrix: The linear operation to apply to the subspace defined by the
-            slices.
-        slices: The parts of the tensor that correspond to the "vector entries"
-            that the matrix should operate on. May be integers or complicated
-            multi-dimensional slices into a tensor. The slices must refer to
-            non-overlapping sections of the input all with the same shape.
-        out: Where to write the output. If not specified, a new numpy array is
-            created, with the same shape and dtype as the target, to store the
-            output.
-
-    Returns:
-        The transformed array.
-    """
-    # Validate arguments.
-    if out is target:
-        raise ValueError("Can't write output over the input.")
-    if matrix.shape != (len(slices), len(slices)):
-        raise ValueError("matrix.shape != (len(slices), len(slices))")
-
-    # Fill in default values and prepare space.
-    if out is None:
-        out = np.copy(target)
-    else:
-        out[...] = target[...]
-
-    # Apply operation.
-    for i, s_i in enumerate(slices):
-        out[s_i] *= matrix[i, i]
-        for j, s_j in enumerate(slices):
-            if i != j:
-                out[s_i] += target[s_j] * matrix[i, j]
-
-    return out
-
-
-class ApplyTFUnitaryArgs:
-    """
-    Basic overwrite of cirq.ApplyUnitaryArgs with correct type hints.
-    """
-
-    def __init__(self,
-                 target_tensor: tf.Tensor,
-                 available_buffer: np.ndarray,
-                 axes: Iterable[int]):
-        """
-        Args:
-            target_tensor: The input tensor that needs to be left-multiplied by
-                the unitary effect of the receiving object. The tensor will
-                have the shape (2, 2, 2, ..., 2). It usually corresponds to
-                a multi-qubit superposition, but it could also be a multi-qubit
-                unitary transformation or some other concept.
-            available_buffer: Pre-allocated workspace with the same shape and
-                dtype as the target tensor.
-            axes: Which axes the unitary effect is being applied to (e.g. the
-                qubits that the gate is operating on).
-        """
-        self.target_tensor = target_tensor
-        self.available_buffer = available_buffer
-        self.axes = tuple(axes)
-
-    def subspace_index(self, little_endian_bits_int: int
-                       ) -> Tuple[Union[slice, int, 'ellipsis'], ...]:
-        """An index for the subspace where the target axes equal a value.
-        Args:
-            little_endian_bits_int: The desired value of the qubits at the
-                targeted `axes`, packed into an integer. The least significant
-                bit of the integer is the desired bit for the first axis, and
-                so forth in increasing order.
-        Returns:
-            A value that can be used to index into `target_tensor` and
-            `available_buffer`, and manipulate only the part of Hilbert space
-            corresponding to a given bit assignment.
-        Example:
-            If `target_tensor` is a 4 qubit tensor and `axes` is `[1, 3]` and
-            then this method will return the following when given
-            `little_endian_bits=0b01`:
-                `(slice(None), 0, slice(None), 1, Ellipsis)`
-            Therefore the following two lines would be equivalent:
-                args.target_tensor[args.subspace_index(0b01)] += 1
-                args.target_tensor[:, 0, :, 1] += 1
-        """
-        return linalg.slice_for_qubits_equal_to(self.axes,
-                                                little_endian_bits_int)
+    return tf.einsum(einsum_str, left_matrix, right_target)
 
 
 def tf_apply_unitary(unitary_value: Any,
@@ -243,7 +174,6 @@ def tf_apply_unitary(unitary_value: Any,
     # Check if the specialized method is present.
     func = getattr(unitary_value, '_apply_unitary_', None)
     if func is not None:
-        print("WHOOPS: DONT IMPLEMENT FUNC YET")
 
         result = func(args)
         if result is not NotImplemented and result is not None:
@@ -252,20 +182,12 @@ def tf_apply_unitary(unitary_value: Any,
     # Fallback to using the object's _unitary_ matrix.
     matrix = unitary(unitary_value, None)
     if matrix is not None:
-        print("WHOOPS: DONT IMPLEMENT matrix YET")
-        # Special case for single-qubit operations.
-        if matrix.shape == (2, 2):
-            zero = args.subspace_index(0)
-            one = args.subspace_index(1)
-            return tf_apply_matrix_to_slices(args.target_tensor,
-                                                 matrix,
-                                                 [zero, one],
-                                                 out=args.available_buffer)
 
         # Fallback to tf.einsum for the general case.
+        # TODO: ensure shape (2,2,2,2....) in general
+        # TODO: ensure consistent datatypes
         return tf_targeted_left_multiply(
-            matrix.astype(args.target_tensor.dtype).reshape(
-                (2,) * (2 * len(args.axes))),
+            matrix,
             args.target_tensor,
             args.axes,
             out=args.available_buffer)
