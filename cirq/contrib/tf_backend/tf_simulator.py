@@ -3,8 +3,10 @@ import tensorflow as tf
 import numpy as np
 import math
 
-from typing import Any
-import cirq
+from typing import Any, Dict, Iterator, List, Union
+from cirq.sim import simulator, wave_function, wave_function_simulator
+from cirq import circuits, linalg, ops, protocols, study
+
 from cirq.contrib.tf_backend.state import (
     State
 )
@@ -13,27 +15,6 @@ from cirq.contrib.tf_backend.gate_wrappers import (
 )
 
 
-def wf_tensor_prod(tensor0, inds0, tensor1, inds1):
-    """
-    TODO:
-        this is not set up to handle anything more than 1-qubit gates/states.
-    tensor0 (tf.Tensor): gate (matrix, rank 2)
-    tensor1 (tf.Tensor): wavefunction (column matrix, rank1)
-    """
-    all_inds = list(set(inds0) & set(inds1))
-    N = len(tensor0.shape) # gate dim
-    K = len(tensor1.shape) # wavefunction dim
-    assert K == len(all_inds)
-
-    gate = tf.reshape(tensor0, (2**K, 2**K))
-    tensor = tensor1
-
-    tensor = tf.reshape(tensor, (2**K, 1))
-    tensor = tf.matmul(gate, tensor)
-    tensor = tf.reshape(tensor, (2,)*K)
-
-    return tensor
-
 
 class TFSimulator:
 
@@ -41,26 +22,110 @@ class TFSimulator:
         pass
 
 
-class TFWaveFunctionSimulator(TFSimulator):
+class TFWaveFunctionSimulatorState:
+    """
+    Container class for a quantum state and its target qubits.
+    """
+
+    def __init__(self, state, qubits):
+        """Create a new State from a wavefunction or density matrix representation.
+        Args:
+            tensor: A vector or tensor of state amplitudes
+            qubits: A sequence of qubit indices
+                FIXME: interface with location..? do I care?
+        """
+
+        # TODO: input validation
+        self._tensor = tf.convert_to_tensor(
+            value=state, dtype=tf.complex64
+        )
+        self._qubits = qubits
+
+
+class TFWaveFunctionSimulator(
+    simulator.SimulatesSamples,
+    simulator.SimulatesFinalState,
+    ):
     """
     TODO:
         - validate input state
         - default initial State
         - proper typing on intial state
     """
-    def __init__(self, ):
+    def __init__(self, *, dtype=np.complex64):
+        """A sparse matrix simulator.
 
-        pass
-        # 2. do TFWrapping for all cirq gates
-        #   a. guarantee preserved ordering..
-        #   b. tensor up the shapes; relies on initial_state
-
-    def simulate(self, circuit: cirq.Circuit, initial_state: Any = None):
+        Args:
+            dtype: The `numpy.dtype` used by the simulation. One of
+            `numpy.complex64` or `numpy.complex128`
         """
-        Construct the tf graph from pre-padded matrices and input state.
-        Accepts placeholders as parameters
+        if dtype not in {np.complex64, np.complex128}:
+            raise ValueError(
+                'dtype must be complex64 or complex128 but was {}'.format(
+                    dtype))
+        self._dtype = dtype
 
-        return staged graph for session run
+    def _run(
+        self,
+        circuit: circuits.Circuit,
+        param_resolver: study.ParamResolver,
+        repetitions: int
+    ) -> Dict[str, np.ndarray]:
+        """Run a simulation, mimicking quantum hardware.
+
+        Args:
+            circuit: The circuit to simulate.
+            param_resolver: Parameters to run with the program.
+            repetitions: Number of times to repeat the run.
+
+        Returns:
+            A dictionary from measurement gate key to measurement
+            results. Measurement results are stored in a 2-dimensional
+            numpy array, the first dimension corresponding to the repetition
+            and the second to the actual boolean measurement results (ordered
+            by the qubits being measured.)
+        """
+        raise NotImplementedError()
+
+    def _simulate_unitary(self, op: ops.Operation, data: _StateAndBuffer,
+            indices: List[int]) -> None:
+        """Simulate an op that has a unitary."""
+        result = protocols.apply_unitary(
+                op,
+                args=protocols.ApplyUnitaryArgs(
+                        data.state,
+                        data.buffer,
+                        indices))
+        if result is data.buffer:
+            data.buffer = data.state
+        data.state = result
+
+    def simulate_sweep(
+        self,
+        program: Union[circuits.Circuit],
+        params: study.Sweepable,
+        qubit_order: ops.QubitOrderOrList = ops.QubitOrder.DEFAULT,
+        initial_state: Any = None,
+    ) -> List['SimulationTrialResult']:
+        """Simulates the supplied Circuit or Schedule.
+
+        This method returns a result which allows access to the entire
+        wave function. In contrast to simulate, this allows for sweeping
+        over different parameter values.
+
+        Args:
+            program: The circuit or schedule to simulate.
+            params: Parameters to run with the program.
+            qubit_order: Determines the canonical ordering of the qubits. This
+                is often used in specifying the initial state, i.e. the
+                ordering of the computational basis states.
+            initial_state: The initial state for the simulation. The form of
+                this state depends on the simulation implementation.  See
+                documentation of the implementing class for details.
+
+        Returns:
+            List of SimulationTrialResults for this run, one for each
+            possible parameter resolver.
         """
         # 1. checking/promotion of initial state to track qubits
         # TODO: enforce sizing on initial_state; don't want any stray/missing qubits
@@ -69,26 +134,19 @@ class TFWaveFunctionSimulator(TFSimulator):
             # enforce tensor shape 2,2,2,2,...
             initial_state = initial_state.reshape((2,)*len(initial_qubits))
             state = tf.convert_to_tensor(
-                value=initial_state, dtype = tf.complex64
+                value=initial_state, dtype=tf.complex64
             )
             # fixme: util here:
-            state = State(state, initial_qubits)
+            state = TFWaveFunctionSimulatorState(state, initial_qubits)
 
         # TODO: gather a set of all qubits acted on in this circuit
 
         # Moment-wise construction of a set of matrices to apply wall
-        ops = []
-        for moment in circuit:
+        self.ops = []
+        for moment in program:
             # FIXME: empty moment?
             for op in moment.operations:
-                ops.append(tf_gate_wrapper(op))
-
-        # sparse tensor-up of each gate's tensor repr
-        for op in ops:
-            new = wf_tensor_prod(op._tensor, op._qubits, state._tensor, state._qubits)
-            # repack state for next processing step
-            state = State(new, initial_qubits)
-        return state
+                self.ops.append(tf_gate_wrapper(op))
 
 #
 # def astensor(array):

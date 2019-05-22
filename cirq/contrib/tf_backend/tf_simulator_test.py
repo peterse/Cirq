@@ -42,37 +42,6 @@ import sympy
 import cirq
 
 
-def test_invalid_dtype():
-    with pytest.raises(ValueError, match='complex'):
-        cirq.Simulator(dtype=np.int32)
-
-
-@pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
-def test_run_no_measurements(dtype):
-    q0, q1 = cirq.LineQubit.range(2)
-    simulator = cirq.Simulator(dtype=dtype)
-
-    circuit = cirq.Circuit.from_ops(cirq.X(q0), cirq.X(q1))
-    with pytest.raises(ValueError, match="no measurements"):
-        simulator.run(circuit)
-
-
-@pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
-def test_run_no_results(dtype):
-    q0, q1 = cirq.LineQubit.range(2)
-    simulator = cirq.Simulator(dtype=dtype)
-
-    circuit = cirq.Circuit.from_ops(cirq.X(q0), cirq.X(q1))
-    with pytest.raises(ValueError, match="no measurements"):
-        simulator.run(circuit)
-
-
-@pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
-def test_run_empty_circuit(dtype):
-    simulator = cirq.Simulator(dtype=dtype)
-    with pytest.raises(ValueError, match="no measurements"):
-        simulator.run(cirq.Circuit())
-
 
 @pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
 def test_run_bit_flips(dtype):
@@ -84,7 +53,7 @@ def test_run_bit_flips(dtype):
                                             (cirq.X**b1)(q1),
                                             cirq.measure(q0),
                                             cirq.measure(q1))
-            result = simulator.run(circuit)
+            result = TFWaveFunctionSimulator.run(circuit)
             np.testing.assert_equal(result.measurements,
                                     {'0': [[b0]], '1': [[b1]]})
 
