@@ -42,17 +42,16 @@ class ApplyTFUnitaryArgs(cirq.ApplyUnitaryArgs):
 
     def __init__(self,
                  target_tensor: tf.Tensor,
-                 available_buffer: np.ndarray,
+                 available_buffer: tf.Tensor,
                  axes: Iterable[int]):
         """
         Args:
             target_tensor: The input tensor that needs to be left-multiplied by
                 the unitary effect of the receiving object. The tensor will
-                have the shape (2, 2, 2, ..., 2). It usually corresponds to
-                a multi-qubit superposition, but it could also be a multi-qubit
-                unitary transformation or some other concept.
+                have the shape (2, 2, 2, ..., 2).
             available_buffer: Pre-allocated workspace with the same shape
-                as the target tensor.
+                as the target tensor. Variable in general, due to mutability
+                requirements
             axes: Which axes the unitary effect is being applied to (e.g. the
                 qubits that the gate is operating on).
         """
@@ -61,11 +60,12 @@ class ApplyTFUnitaryArgs(cirq.ApplyUnitaryArgs):
         self.axes = tuple(axes)
 
 
-def tf_targeted_left_multiply(left_matrix:np.ndarray,
-                           right_target:np.ndarray,
-                           target_axes: Sequence[int],
-                           out: Optional[np.ndarray] = None
-                           ) -> np.ndarray:
+def tf_targeted_left_multiply(
+        left_matrix:tf.Tensor,
+        right_target:tf.Tensor,
+        target_axes: Sequence[int],
+        out: Optional[np.ndarray] = None
+        ) -> np.ndarray:
     """Left-multiplies the given axes of the target tensor by the given matrix.
     Note that the matrix must have a compatible tensor structure.
     For example, if you have an 6-qubit state vector `input_state` with shape
@@ -107,7 +107,8 @@ def tf_targeted_left_multiply(left_matrix:np.ndarray,
     output_keep = tf_index_map(output_indices)
     einsum_str = f"{input_strip},{target_strip}->{output_keep}"
 
-    return tf.einsum(einsum_str, left_matrix, right_target)
+    right_target = tf.einsum(einsum_str, left_matrix, right_target)
+    return right_target
 
 
 def tf_apply_unitary(unitary_value: Any,
@@ -154,6 +155,8 @@ def tf_apply_unitary(unitary_value: Any,
         result = func(args)
         if result is not NotImplemented and result is not None:
             return result
+
+    # FIXME: reinsert known subspace-matrix multiplication?
 
     # Fallback to using the object's _unitary_ matrix.
     matrix = unitary(unitary_value, None)
