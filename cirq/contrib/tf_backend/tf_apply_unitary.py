@@ -38,6 +38,8 @@ def tf_index_map(inds):
 class ApplyTFUnitaryArgs(cirq.ApplyUnitaryArgs):
     """
     Basic overwrite of cirq.ApplyUnitaryArgs with correct type hints.
+
+    Inherits useful methods like `subspace_index`
     """
 
     def __init__(self,

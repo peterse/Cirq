@@ -106,8 +106,9 @@ class TFWaveFunctionSimulator(
         print(data.buffer)
         data.state = tf_apply_unitary(
             op,
-            args=ApplyTFUnitaryArgs(data.state, data.buffer, indices)
-        )
+            args=ApplyTFUnitaryArgs(target_tensor=data.state,
+                                    available_buffer=data.buffer,
+                                    axes=indices))
         return _StateAndBuffer(data.state, None) # Flush the buffer
         # CHECKME: drop any connection to previous state info?
         # if result is data.buffer:
