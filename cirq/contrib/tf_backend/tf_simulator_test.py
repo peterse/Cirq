@@ -32,7 +32,7 @@ def test_tf_wavefunction_simulator_instantiate():
 def test_tf_wavefunction_simulator_dense_circuit_conversion():
 
     # single qubit
-    tf_sim = TFWaveFunctionSimulator().simulate(TEST_CIRCUIT, INITIAL_STATE)
+    tf_sim = TFWaveFunctionSimulator().simulate(TEST_CIRCUIT, initial_state=INITIAL_STATE)
 
 
 
@@ -49,6 +49,8 @@ def test_run_bit_flips(dtype):
             print(result)
 
 
+if __name__ == "__main__":
+    test_tf_wavefunction_simulator_dense_circuit_conversion()
 #
 # @pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
 # def test_run_repetitions_measure_at_end(dtype):

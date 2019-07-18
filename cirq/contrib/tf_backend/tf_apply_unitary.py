@@ -151,7 +151,6 @@ def tf_apply_unitary(unitary_value: Any,
     # Check if the specialized method is present.
     func = getattr(unitary_value, '_apply_unitary_', None)
     if func is not None:
-
         result = func(args)
         if result is not NotImplemented and result is not None:
             return result

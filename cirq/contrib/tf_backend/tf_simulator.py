@@ -101,6 +101,9 @@ class TFWaveFunctionSimulator(
     def _simulate_unitary(self, op: ops.Operation, data: _StateAndBuffer,
             indices: List[int]) -> _StateAndBuffer:
         """Core method: Compose the next chunk of the computation graph."""
+        print("PIIING")
+        print(data.state)
+        print(data.buffer)
         data.state = tf_apply_unitary(
             op,
             args=ApplyTFUnitaryArgs(data.state, data.buffer, indices)

@@ -29,12 +29,8 @@ class BaseTFGate(cirq.SupportsUnitary, cirq.SupportsApplyUnitary):
 
     def _apply_unitary_(self, state):
         """Apply the action of this gate upon a state"""
-
         return NotImplemented
-        # TODO: tf implementation of eigenvalue shortcut.
-        # indices = state.qubits
-        #tensor = tf.matmul(self._tensor, state._tensor, indices)
-        return tensor
+
 
     @property
     def _has_unitary_(self):
@@ -48,6 +44,7 @@ class WrapYPowGate(BaseTFGate):
 
     def __init__(self, qubit: int,
         theta: tf.Tensor = None,
+        global_shift: float = None,
         dtype = tf.complex64
     ):
         """Wrap a YPoweGate instance.
@@ -56,8 +53,9 @@ class WrapYPowGate(BaseTFGate):
 
         theta = tf.multiply(theta, [[np.pi/2]])
         theta = tf.cast(theta, dtype)
+        self._exponent = theta
+        self._global_shift = global_shift
 
-        # FIXME: linequbits only...
         self._qubits = [qubit.x]
         self._tensor = tf.convert_to_tensor([
             [tf.cos(theta), -1.0*tf.sin(theta)],
@@ -90,27 +88,6 @@ class WrapXPowGate(BaseTFGate):
             [-1.0j * tf.sin(theta), tf.cos(theta)],
         ])
 
-    def _apply_unitary_(self, args: ApplyTFUnitaryArgs
-                        ) -> tf.Tensor:
-
-        if self._exponent != 1:
-            return None
-        zero = args.subspace_index(0)
-        one = args.subspace_index(1)
-        inds = [zero, one]
-        ref0 = args.target_tensor[one]
-        ref1 = args.target_tensor[zero]
-        refs = [ref0, ref1]
-        x = args.available_buffer
-        with tf.control_dependencies([x[inds[i]].assign(refs[i]) for i in range(2)]):
-            x = tf.identity(x)
-
-        p = 1j**(2 * self._exponent * self._global_shift)
-        if p != 1:
-            x = tf.scalar_mul(p, x)
-        return x
-
-
 ALL_WRAPPERS = {
     cirq.YPowGate: WrapYPowGate,
     cirq.XPowGate: WrapXPowGate,
@@ -122,10 +99,35 @@ def tf_gate_wrapper(
     dtype) -> BaseTFGate:
 
     # todo: notimplemented case checking
-    # cirq = spaghetti inheritance. Why were these getters so difficult?
+    # cirq has spaghetti inheritance. Why were these getters so difficult?
     theta = getattr(inst._gate, 'exponent')
     global_shift = getattr(inst._gate, '_global_shift')
     if theta is not None:
+        print("PING")
+        print(ALL_WRAPPERS.get(type(inst._gate)))
         return ALL_WRAPPERS.get(
             type(inst._gate))(*inst.qubits, theta=theta, global_shift=global_shift, dtype=dtype
         )
+
+
+### DO NOT DELETE
+# Below is working prototype code for WrapXPowGate._apply_unitary
+#     def _apply_unitary_(self, args: ApplyTFUnitaryArgs
+#                         ) -> tf.Tensor:
+#
+#         if self._exponent != 1:
+#             return None
+#         zero = args.subspace_index(0)
+#         one = args.subspace_index(1)
+#         inds = [zero, one]
+#         ref0 = args.target_tensor[one]
+#         ref1 = args.target_tensor[zero]
+#         refs = [ref0, ref1]
+#         x = args.available_buffer
+#         with tf.control_dependencies([x[inds[i]].assign(refs[i]) for i in range(2)]):
+#             x = tf.identity(x)
+#
+#         p = 1j**(2 * self._exponent * self._global_shift)
+#         if p != 1:
+#             x = tf.scalar_mul(p, x)
+#         return x
