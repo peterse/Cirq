@@ -160,6 +160,8 @@ class TFWaveFunctionSimulator(
 
         # TODO: gather a set of all qubits acted on in this circuit
 
+        # FIXME: initialize buffer variable
+        # buf = tf.Variable(tf.zeros_like(state, dtype=self._dtype), name='buffer')
         # Moment-wise construction of a set of matrices to apply wall
         self.ops = []
         self.indices = []
@@ -177,8 +179,10 @@ class TFWaveFunctionSimulator(
             # prepare to iteratively construct graph down the line of ops
             state_and_buff = _StateAndBuffer(state, None) # initializer
             for op, inds in zip(self.ops, self.indices):
+                print("my op", op)
                 # can't flush the buffer!!
-                buf = tf.Variable(tf.zeros_like(state, dtype=self._dtype))
+                # buf = tf.assign(tf.get_variable(name='buffer'), tf.zeros_like(state, dtype=self._dtype))
+                buf = tf.zeros_like(state, dtype=self._dtype)
                 state_and_buff = _StateAndBuffer(state_and_buff.state, buf)
                 state_and_buff = self._simulate_unitary(op, state_and_buff, inds)
 

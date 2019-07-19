@@ -1,4 +1,4 @@
-
+from typing import List
 import cirq
 import tensorflow as tf
 import numpy as np
@@ -7,7 +7,10 @@ from cirq.contrib.tf_backend.tf_apply_unitary import (
 )
 """
 LOCAL TODO:
-    - wrapper constructs for every cirq gate.
+    - wrapper constructs for every cirq gate
+    - Check that these gate matrix definitions are self consistent; cirq
+        has a weird tendency to introduce/cut global phases out...
+    - unit tests for each individual instantiation
 """
 
 
@@ -40,32 +43,6 @@ class BaseTFGate(cirq.SupportsUnitary, cirq.SupportsApplyUnitary):
         return self._tensor
 
 
-class WrapYPowGate(BaseTFGate):
-
-    def __init__(self, qubit: int,
-        theta: tf.Tensor = None,
-        global_shift: float = None,
-        dtype = tf.complex64
-    ):
-        """Wrap a YPoweGate instance.
-        learnability is handled at exponent instantiation.
-        """
-
-        theta = tf.multiply(theta, [[np.pi/2]])
-        theta = tf.cast(theta, dtype)
-        self._exponent = theta
-        self._global_shift = global_shift
-
-        self._qubits = [qubit.x]
-        self._tensor = tf.convert_to_tensor([
-            [tf.cos(theta), -1.0*tf.sin(theta)],
-            [tf.sin(theta), tf.cos(theta)]
-        ])
-
-        # TODO: different classing structure that will let me track qubits
-        # super().__init__(tensor, [qubit], [theta])
-
-
 class WrapXPowGate(BaseTFGate):
 
     def __init__(self, qubit: int,
@@ -75,6 +52,7 @@ class WrapXPowGate(BaseTFGate):
     ):
         """Wrap a XPoweGate instance.
         learnability is handled at exponent instantiation.
+
         """
 
         # FIXME: IS THETA A SCALAR OR A TENSOR IN GENERAL???
@@ -87,11 +65,132 @@ class WrapXPowGate(BaseTFGate):
             [tf.cos(theta), -1.0j * tf.sin(theta)],
             [-1.0j * tf.sin(theta), tf.cos(theta)],
         ])
+        # TODO: different classing structure that will let me track qubits
+        # super().__init__(tensor, [qubit], [theta])
+
+
+class WrapYPowGate(BaseTFGate):
+
+    def __init__(self, qubit: int,
+        theta: tf.Tensor = None,
+        global_shift: float = None,
+        dtype = tf.complex64
+    ):
+        """Wrap a YPowGate instance.
+        """
+
+        theta = tf.scalar_mul(np.pi/2, theta)
+        theta = tf.cast(theta, dtype)
+        self._exponent = theta
+        self._global_shift = global_shift
+        self._qubits = [qubit.x]
+        self._tensor = tf.convert_to_tensor([
+            [tf.cos(theta), -1.0*tf.sin(theta)],
+            [tf.sin(theta), tf.cos(theta)]
+        ])
+
+
+class WrapZPowGate(BaseTFGate):
+
+    def __init__(self, qubit: int,
+        theta: tf.Tensor = None,
+        global_shift: float = None,
+        dtype = tf.complex64
+    ):
+        """Wrap a ZPowGate instance.
+        """
+
+        theta = tf.scalar_mul(np.pi/2, theta)
+        theta = tf.cast(theta, dtype)
+        self._exponent = theta
+        self._global_shift = global_shift
+        self._qubits = [qubit.x]
+        self._tensor = tf.convert_to_tensor([
+            [tf.cos(theta) - 1j * tf.sin(theta), 0],
+            [0, tf.cos(theta) + 1j * tf.sin(theta)]
+        ])
+
+
+class WrapHPowGate(BaseTFGate):
+
+    def __init__(self, qubit: int,
+        theta: tf.Tensor = None,
+        global_shift: float = None,
+        dtype = tf.complex64
+    ):
+        """Wrap a HPowGate instance.
+        """
+
+        theta = tf.scalar_mul(np.pi/2, theta)
+        theta = tf.cast(theta, dtype)
+        self._exponent = theta
+        self._global_shift = global_shift
+        self._qubits = [qubit.x]
+        self._tensor = tf.convert_to_tensor([
+            [tf.cos(theta) - 1j * tf.sin(theta), -1j * tf.sin(theta)],
+            [-1j * tf.sin(theta), tf.cos(theta) + 1j * tf.sin(theta)]
+        ])
+
+        # FIXME: can't do this... need variable to be carried thru op
+        self._tensor = tf.scalar_mul(np.exp(1j*theta)/np.sqrt(2), self._tensor)
+
+
+class WrapCNotPowGate(BaseTFGate):
+
+    def __init__(self, *qubits: List[int],
+                 theta: tf.Tensor = None,
+                 global_shift: float = None,
+                 dtype = tf.complex64
+    ):
+        """Wrap a CNotPowGate instance.
+        """
+
+        theta = tf.scalar_mul(np.pi/2, theta)
+        theta = tf.cast(theta, dtype)
+        self._exponent = theta
+        self._global_shift = global_shift
+        self._qubits = [qubits[0].x, qubits[1].x]
+        self._tensor = tf.convert_to_tensor([
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, tf.exp(1j*theta) * tf.cos(theta), -1j * tf.exp(1j*theta) * tf.sin(theta)],
+            [0, 0, -1j * tf.exp(1j*theta) * tf.sin(theta), tf.exp(1j*theta) * tf.cos(theta)]
+        ])
+
+
+class WrapSwapPowGate(BaseTFGate):
+
+    def __init__(self, *qubits: List[int],
+                 theta: tf.Tensor = None,
+                 global_shift: float = None,
+                 dtype = tf.complex64
+    ):
+        """Wrap a ISwapPowGate instance.
+        """
+
+        theta = tf.scalar_mul(np.pi/2, theta)
+        theta = tf.cast(theta, dtype)
+        self._exponent = theta
+        self._global_shift = global_shift
+        self._qubits = [qubits[0].x, qubits[1].x]
+        self._tensor = tf.convert_to_tensor([
+            [1, 0, 0, 0],
+            [0, tf.exp(1j*theta) * tf.cos(theta), -1j * tf.exp(1j*theta) * tf.sin(theta), 0],
+            [0, -1j * tf.exp(1j*theta) * tf.sin(theta), tf.exp(1j*theta) * tf.cos(theta), 0],
+            [0, 0, 0, 1]
+        ])
+
 
 ALL_WRAPPERS = {
-    cirq.YPowGate: WrapYPowGate,
-    cirq.XPowGate: WrapXPowGate,
     cirq.ops.pauli_gates._PauliX: WrapXPowGate,
+    cirq.ops.pauli_gates._PauliY: WrapYPowGate,
+    cirq.ops.pauli_gates._PauliZ: WrapZPowGate,
+    cirq.XPowGate: WrapXPowGate,
+    cirq.YPowGate: WrapYPowGate,
+    cirq.ZPowGate: WrapZPowGate,
+    cirq.HPowGate: WrapHPowGate,
+    cirq.CNotPowGate: WrapCNotPowGate,
+    cirq.SwapPowGate: WrapSwapPowGate,
 }
 
 def tf_gate_wrapper(
@@ -100,10 +199,9 @@ def tf_gate_wrapper(
 
     # todo: notimplemented case checking
     # cirq has spaghetti inheritance. Why were these getters so difficult?
-    theta = getattr(inst._gate, 'exponent')
-    global_shift = getattr(inst._gate, '_global_shift')
+    theta = getattr(inst._gate, 'exponent', 1)
+    global_shift = getattr(inst._gate, '_global_shift', 0)
     if theta is not None:
-        print("PING")
         print(ALL_WRAPPERS.get(type(inst._gate)))
         return ALL_WRAPPERS.get(
             type(inst._gate))(*inst.qubits, theta=theta, global_shift=global_shift, dtype=dtype

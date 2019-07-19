@@ -109,6 +109,8 @@ def tf_targeted_left_multiply(
     output_keep = tf_index_map(output_indices)
     einsum_str = f"{input_strip},{target_strip}->{output_keep}"
 
+    print("left", left_matrix)
+    print("right", right_target)
     right_target = tf.einsum(einsum_str, left_matrix, right_target)
     return right_target
 
@@ -161,6 +163,7 @@ def tf_apply_unitary(unitary_value: Any,
 
     # Fallback to using the object's _unitary_ matrix.
     matrix = unitary(unitary_value, None)
+    print("hello from apply_unitary", matrix)
     if matrix is not None:
 
         # Fallback to tf.einsum for the general case.

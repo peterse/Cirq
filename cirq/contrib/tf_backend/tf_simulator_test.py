@@ -17,10 +17,12 @@ from cirq.contrib.tf_backend.tf_simulator import (
 )
 
 INITIAL_STATE = np.asarray([1, 0])
-TEST_VAR = tf.Variable(1.0)
+TEST_VAR_1 = tf.Variable(1.0, tf.float64)
+TEST_VAR_2 = tf.Variable(1.0, tf.float64)
+print("SHAPE", TEST_VAR_1.shape)
 TEST_GATES = [
-    cirq.YPowGate(exponent=TEST_VAR)(cirq.LineQubit(0)),
-    cirq.YPowGate(exponent=TEST_VAR)(cirq.LineQubit(0))
+    cirq.YPowGate(exponent=TEST_VAR_1)(cirq.LineQubit(0)),
+    cirq.YPowGate(exponent=TEST_VAR_2)(cirq.LineQubit(0))
 ]
 TEST_CIRCUIT = cirq.Circuit.from_ops(TEST_GATES)
 
