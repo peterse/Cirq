@@ -16,6 +16,11 @@ from cirq.contrib.tf_backend.tf_simulator import (
     TFWaveFunctionSimulator
 )
 
+
+def q(i):
+    return cirq.LineQubit(i)
+
+
 def test_tf_wavefunction_simulator_instantiate():
     _ = TFWaveFunctionSimulator()
 
@@ -58,58 +63,39 @@ def test_run_correlations(dtype):
     for _ in range(10):
         circuit_op = simulator.simulate(circuit)
         with tf.Session() as sess:
-            sess.run(tf.global_variables_initializer())
             wf = sess.run(circuit_op)
         measurements = cirq.sample_state_vector(wf.reshape(-1), [0, 1])
 
 
+@pytest.mark.parametrize('g', [cirq.X, cirq.Y, cirq.Z, cirq.H, cirq.S, cirq.T])
+def test_tf_wavefunction_simulator_vs_cirq_single_qubit_gates(g):
+    rand_init = np.complex64(cirq.testing.random_superposition(2))
+    circuit = cirq.Circuit.from_ops(g(q(0)))
+    cirq_result = cirq.Simulator().simulate(
+        circuit, initial_state=rand_init).final_state
+
+    circuit_op = TFWaveFunctionSimulator(dtype=tf.complex64).simulate(circuit)
+    with tf.Session() as sess:
+        tf_result = sess.run(circuit_op)
+
+    print(tf_result, cirq_result)
+    print(cirq.allclose_up_to_global_phase(tf_result, cirq_result))
+
+@pytest.mark.parametrize('g', [cirq.Rx, cirq.Ry, cirq.Rz])
+def test_tf_wavefunction_simulator_vs_cirq_parametrized_single_qubit_gates(g):
+    for e in [0, 1, np.random.rand()]:
+        circuit = cirq.Circuit.from_ops(g(exponent=e)(q(0)))
 
 
-def get_parametrized_two_qubit_gates():
-    return [
-        cirq.SwapPowGate,
-        cirq.CNotPowGate,
-        cirq.ISwapPowGate,
-        cirq.ZZPowGate,
-        cirq.CZ,
-    ]
+@pytest.mark.parametrize('g', [cirq.CNOT, cirq.SWAP])
+def test_tf_wavefunction_simulator_vs_cirq_two_qubit_gates(g):
+    circuit = cirq.Circuit.from_ops(g(q(0), q(1)))
 
-def get_two_qubit_gates():
-    return [
-
-    ]
-
-def get_parametrized_single_qubit_gates():
-    return [
-
-    ]
-
-
-@pytest.mark.parametrize(
-    'gate', [cirq.X, cirq.Y, cirq.Z, cirq.H, cirq.S, cirq.T])
-def test_tf_wavefunction_simulator_vs_cirq_single_qubit_gates():
-    return
-
-
-@pytest.mark.parametrize(
-    'gate', [cirq.Rx, cirq.Ry, cirq.Rz])
-def test_tf_wavefunction_simulator_vs_cirq_parametrized_single_qubit_gates():
-    return
-
-
-@pytest.mark.parametrize(
-    'gate', [cirq.CNOT, cirq.SWAP])
-def test_tf_wavefunction_simulator_vs_cirq_two_qubit_gates():
-    return
-
-
-@pytest.mark.parametrize('gate', [cirq.SwapPowGate,
-                                  cirq.CNotPowGate,
-                                  cirq.ISwapPowGate,
-                                  cirq.ZZPowGate,
-                                  cirq.CZ])
-def test_tf_wavefunction_simulator_vs_cirq_parametrized_two_qubit_gates():
-    return
+@pytest.mark.parametrize('g', [cirq.SwapPowGate, cirq.CNotPowGate,
+                               cirq.ISwapPowGate, cirq.ZZPowGate, cirq.CZ])
+def test_tf_wavefunction_simulator_vs_cirq_parametrized_two_qubit_gates(g):
+    for e in [0, 1, np.random.rand()]:
+        circuit = cirq.Circuit.from_ops(g(exponent=e)(q(0), q(1)))
 
 
 # @pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
