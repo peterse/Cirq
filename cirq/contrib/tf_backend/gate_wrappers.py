@@ -1,4 +1,6 @@
-from typing import List
+from typing import Any, List, Union
+import numbers
+
 import cirq
 import tensorflow as tf
 import numpy as np
@@ -40,17 +42,17 @@ class BaseTFGate(cirq.SupportsUnitary, cirq.SupportsApplyUnitary):
         return True
 
     def _unitary_(self):
+        # TODO: turn this over to eigendecomposition
         return self._tensor
 
 
 class WrapXPowGate(BaseTFGate):
 
     def __init__(self, qubit: int,
-        theta: tf.Tensor = None,
-        global_shift: float = None,
-        dtype = tf.complex64
-    ):
-        """Wrap a XPoweGate instance.
+                 theta: tf.Tensor = None,
+                 global_shift: float = None,
+                 dtype = tf.complex64):
+        """Wrap a XPowGate instance.
         learnability is handled at exponent instantiation.
 
         """
@@ -132,7 +134,7 @@ class WrapHPowGate(BaseTFGate):
         ])
 
         # FIXME: can't do this... need variable to be carried thru op
-        self._tensor = tf.scalar_mul(np.exp(1j*theta)/np.sqrt(2), self._tensor)
+        self._tensor = tf.scalar_mul(tf.exp(1j*theta)/np.sqrt(2), self._tensor)
 
 
 class WrapCNotPowGate(BaseTFGate):
@@ -191,21 +193,32 @@ ALL_WRAPPERS = {
     cirq.HPowGate: WrapHPowGate,
     cirq.CNotPowGate: WrapCNotPowGate,
     cirq.SwapPowGate: WrapSwapPowGate,
+    cirq.I: NotImplemented,
+    cirq.S: NotImplemented,
+    cirq.T: NotImplemented,
+
 }
 
-def tf_gate_wrapper(
-    inst: cirq.EigenGate,
-    dtype) -> BaseTFGate:
+
+def _promote_scalar_to_tf(v: Any, dtype=tf.complex64) -> Union[tf.Tensor, tf.Variable]:
+    if isinstance(v, (tf.Variable, tf.Tensor)):
+        return v
+    if isinstance(v, numbers.Number):
+        return tf.constant(v, dtype=dtype)
+    raise NotImplementedError(
+        "Cannot promote type {} -> tf.Tensor".format(type(v)))
+
+
+# FIXME: is inst always an eigengate..?
+def tf_gate_wrapper(inst: cirq.EigenGate, dtype=tf.complex64) -> BaseTFGate:
 
     # todo: notimplemented case checking
-    # cirq has spaghetti inheritance. Why were these getters so difficult?
-    theta = getattr(inst._gate, 'exponent', 1)
-    global_shift = getattr(inst._gate, '_global_shift', 0)
-    if theta is not None:
-        print(ALL_WRAPPERS.get(type(inst._gate)))
-        return ALL_WRAPPERS.get(
-            type(inst._gate))(*inst.qubits, theta=theta, global_shift=global_shift, dtype=dtype
-        )
+    theta = _promote_scalar_to_tf(getattr(inst._gate, 'exponent', 1))
+    global_shift = _promote_scalar_to_tf(getattr(inst._gate, '_global_shift', 0))
+
+    return ALL_WRAPPERS.get(
+        type(inst._gate))(*inst.qubits, theta=theta, global_shift=global_shift, dtype=dtype
+    )
 
 
 ### DO NOT DELETE
