@@ -41,8 +41,22 @@ class BaseTFGate(cirq.SupportsUnitary, cirq.SupportsApplyUnitary):
         return True
 
     def _unitary_(self):
-        # TODO: turn this over to eigendecomposition
+        """Overwrite of _unitary_ to block cirq.unitary protocol."""
         return self._tensor
+
+    def _tensor_from_eigencomponents(self, tensor: tf.Tensor) -> tf.Tensor:
+        """Compose a valid tensor from this gate's eigencomponents.
+
+        This is a stand-in for cirq._unitary_ automatically composing the
+        tensor from eigencomponents.
+        """
+        for half_turns, component in self._eigen_components():
+            e = self._exponent
+            g = self._global_shift
+            tensor = tf.add(
+                tf.scalar_mul(tf.exp(1j * np.pi * e * (half_turns + g)),
+                              component), tensor)
+        return tensor
 
 
 class WrapXPowGate(BaseTFGate):
@@ -161,6 +175,32 @@ class WrapSwapPowGate(BaseTFGate):
         self._tensor = tf.reshape(self._tensor, (2,2,2,2))
 
 
+class WrapZZPowGate(BaseTFGate):
+
+    def __init__(self, *qubits: List[int],
+                 theta: tf.Tensor = None,
+                 global_shift: float = None,
+                 dtype = tf.complex64
+    ):
+        """Wrap a ZZPowGate instance.
+        """
+        self._exponent = theta
+        self._global_shift = global_shift
+        self._dtype = dtype
+        self._tensor = tf.zeros((4, 4), dtype=dtype)
+        self._tensor = self._tensor_from_eigencomponents(self._tensor)
+        self._tensor = tf.reshape(self._tensor, (2,2,2,2))
+        self._qubits = [qubits[0].x, qubits[1].x]
+
+    def _eigen_components(self):
+        """Overwrite EigenGate np arrays to avoid messy casting."""
+        return [
+            (tf.constant(0, dtype=self._dtype),
+                tf.convert_to_tensor(np.diag([1, 0, 0, 1]), dtype=self._dtype)),
+            (tf.constant(1, dtype=self._dtype),
+                tf.convert_to_tensor(np.diag([0, 1, 1, 0]), dtype=self._dtype)),
+        ]
+
 ALL_WRAPPERS = {
     cirq.ops.pauli_gates._PauliX: WrapXPowGate,
     cirq.ops.pauli_gates._PauliY: WrapYPowGate,
@@ -171,6 +211,7 @@ ALL_WRAPPERS = {
     cirq.HPowGate: WrapHPowGate,
     cirq.CNotPowGate: WrapCNotPowGate,
     cirq.SwapPowGate: WrapSwapPowGate,
+    cirq.ZZPowGate: WrapZZPowGate,
     cirq.I: NotImplemented,
     cirq.S: NotImplemented,
     cirq.T: NotImplemented,
