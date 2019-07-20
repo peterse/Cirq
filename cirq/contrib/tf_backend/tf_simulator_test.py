@@ -16,17 +16,6 @@ from cirq.contrib.tf_backend.tf_simulator import (
     TFWaveFunctionSimulator
 )
 
-INITIAL_STATE = np.asarray([1, 0])
-TEST_VAR_1 = tf.Variable(1.0, tf.float64)
-TEST_VAR_2 = tf.Variable(1.0, tf.float64)
-print("SHAPE", TEST_VAR_1.shape)
-TEST_GATES = [
-    cirq.YPowGate(exponent=TEST_VAR_1)(cirq.LineQubit(0)),
-    cirq.YPowGate(exponent=TEST_VAR_2)(cirq.LineQubit(0))
-]
-TEST_CIRCUIT = cirq.Circuit.from_ops(TEST_GATES)
-
-
 def test_tf_wavefunction_simulator_instantiate():
     _ = TFWaveFunctionSimulator()
 
@@ -34,7 +23,12 @@ def test_tf_wavefunction_simulator_instantiate():
 def test_tf_wavefunction_simulator_dense_circuit_conversion():
 
     # single qubit
-    tf_sim = TFWaveFunctionSimulator().simulate(TEST_CIRCUIT, initial_state=INITIAL_STATE)
+    circuit = cirq.Circuit.from_ops([
+        cirq.YPowGate(exponent=tf.Variable(1, tf.float64))(cirq.LineQubit(0)),
+        cirq.YPowGate(exponent=tf.Variable(1, tf.float64))(cirq.LineQubit(1)),
+        cirq.XPowGate(exponent=tf.Variable(1, tf.float64))(cirq.LineQubit(0))])
+    initial_state = np.asarray([1, 0])
+    tf_sim = TFWaveFunctionSimulator().simulate(circuit, initial_state=initial_state)
 
 
 
@@ -47,8 +41,47 @@ def test_run_bit_flips(dtype):
             circuit = cirq.Circuit.from_ops((cirq.X**b0)(q0),
                                             (cirq.X**b1)(q1),
                                             )
-            result = simulator.simulate(circuit)
-            print(result)
+            circuit_op = simulator.simulate(circuit)
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            wf = sess.run(circuit_op)
+        measurements = cirq.sample_state_vector(wf, [0, 1])
+        np.testing.assert_equal(measurements, {'0': [b0], '1': [b1]})
+        expected_state = np.zeros(shape=(2, 2))
+        expected_state[b0][b1] = 1.0
+        np.testing.assert_equal(wf, np.reshape(expected_state, 4))
+
+
+@pytest.mark.parametrize('dtype', [tf.complex64, tf.complex128])
+def test_run_correlations(dtype):
+    q0, q1 = cirq.LineQubit.range(2)
+    simulator = TFWaveFunctionSimulator(dtype=dtype)
+    circuit = cirq.Circuit.from_ops(cirq.H(q0), cirq.CNOT(q0, q1))
+    for _ in range(10):
+        circuit_op = simulator.simulate(circuit)
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            wf = sess.run(circuit_op)
+        measurements = cirq.sample_state_vector(wf, [0, 1])
+        print(measurements)
+        # bits = result.measurements['0,1'][0]
+        # assert bits[0] == bits[1]
+
+
+# @pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
+# def test_simulate_initial_state(dtype):
+#     q0, q1 = cirq.LineQubit.range(2)
+#     simulator = cirq.Simulator(dtype=dtype)
+#     for b0 in [0, 1]:
+#         for b1 in [0, 1]:
+#             circuit = cirq.Circuit.from_ops((cirq.X**b0)(q0), (cirq.X**b1)(q1))
+#             result = simulator.simulate(circuit, initial_state=1)
+#             expected_state = np.zeros(shape=(2, 2))
+#             expected_state[b0][1 - b1] = 1.0
+#             np.testing.assert_equal(result.final_state,
+#                                     np.reshape(expected_state, 4))
+
+
 
 
 if __name__ == "__main__":
@@ -131,17 +164,6 @@ if __name__ == "__main__":
 #     assert sum(result.measurements['0'])[0] < 80
 #     assert sum(result.measurements['0'])[0] > 20
 #
-#
-# @pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
-# def test_run_correlations(dtype):
-#     q0, q1 = cirq.LineQubit.range(2)
-#     simulator = cirq.Simulator(dtype=dtype)
-#     circuit = cirq.Circuit.from_ops(cirq.H(q0), cirq.CNOT(q0, q1),
-#                                     cirq.measure(q0, q1))
-#     for _ in range(10):
-#         result = simulator.run(circuit)
-#         bits = result.measurements['0,1'][0]
-#         assert bits[0] == bits[1]
 #
 #
 # @pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
@@ -239,33 +261,3 @@ if __name__ == "__main__":
 #     assert count < 80 and count > 20
 #
 #
-# @pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
-# def test_simulate_bit_flips(dtype):
-#     q0, q1 = cirq.LineQubit.range(2)
-#     simulator = cirq.Simulator(dtype=dtype)
-#     for b0 in [0, 1]:
-#         for b1 in [0, 1]:
-#             circuit = cirq.Circuit.from_ops((cirq.X**b0)(q0),
-#                                             (cirq.X**b1)(q1),
-#                                             cirq.measure(q0),
-#                                             cirq.measure(q1))
-#             result = simulator.simulate(circuit)
-#             np.testing.assert_equal(result.measurements, {'0': [b0], '1': [b1]})
-#             expected_state = np.zeros(shape=(2, 2))
-#             expected_state[b0][b1] = 1.0
-#             np.testing.assert_equal(result.final_state,
-#                                     np.reshape(expected_state, 4))
-#
-#
-# @pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
-# def test_simulate_initial_state(dtype):
-#     q0, q1 = cirq.LineQubit.range(2)
-#     simulator = cirq.Simulator(dtype=dtype)
-#     for b0 in [0, 1]:
-#         for b1 in [0, 1]:
-#             circuit = cirq.Circuit.from_ops((cirq.X**b0)(q0), (cirq.X**b1)(q1))
-#             result = simulator.simulate(circuit, initial_state=1)
-#             expected_state = np.zeros(shape=(2, 2))
-#             expected_state[b0][1 - b1] = 1.0
-#             np.testing.assert_equal(result.final_state,
-#                                     np.reshape(expected_state, 4))

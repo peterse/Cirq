@@ -29,13 +29,12 @@ class BaseTFGate(cirq.SupportsUnitary, cirq.SupportsApplyUnitary):
 
 
     def __init__(self, ):
-
+        # TODO: can I consolidate some of my __init__'s into here?
         pass
 
     def _apply_unitary_(self, state):
         """Apply the action of this gate upon a state"""
         return NotImplemented
-
 
     @property
     def _has_unitary_(self):
@@ -57,12 +56,6 @@ class WrapXPowGate(BaseTFGate):
 
         """
 
-        # FIXME: IS THETA A SCALAR OR A TENSOR IN GENERAL???
-        self._exponent = theta # save for later use
-        self._global_shift = global_shift # FIXME my inheritance is all fucked up...
-        theta = tf.cast(theta, dtype)
-        # FIXME: linequbits only...
-        self._qubits = [qubit.x]
         self._tensor = tf.convert_to_tensor([
             [tf.cos(theta), -1.0j * tf.sin(theta)],
             [-1.0j * tf.sin(theta), tf.cos(theta)],
@@ -74,15 +67,11 @@ class WrapXPowGate(BaseTFGate):
 class WrapYPowGate(BaseTFGate):
 
     def __init__(self, qubit: int,
-        theta: tf.Tensor = None,
-        global_shift: float = None,
-        dtype = tf.complex64
-    ):
+                 theta: tf.Tensor = None,
+                 global_shift: float = None,
+                 dtype = tf.complex64):
         """Wrap a YPowGate instance.
         """
-
-        theta = tf.scalar_mul(np.pi/2, theta)
-        theta = tf.cast(theta, dtype)
         self._exponent = theta
         self._global_shift = global_shift
         self._qubits = [qubit.x]
@@ -95,15 +84,11 @@ class WrapYPowGate(BaseTFGate):
 class WrapZPowGate(BaseTFGate):
 
     def __init__(self, qubit: int,
-        theta: tf.Tensor = None,
-        global_shift: float = None,
-        dtype = tf.complex64
-    ):
+                 theta: tf.Tensor = None,
+                 global_shift: float = None,
+                 dtype = tf.complex64):
         """Wrap a ZPowGate instance.
         """
-
-        theta = tf.scalar_mul(np.pi/2, theta)
-        theta = tf.cast(theta, dtype)
         self._exponent = theta
         self._global_shift = global_shift
         self._qubits = [qubit.x]
@@ -116,15 +101,11 @@ class WrapZPowGate(BaseTFGate):
 class WrapHPowGate(BaseTFGate):
 
     def __init__(self, qubit: int,
-        theta: tf.Tensor = None,
-        global_shift: float = None,
-        dtype = tf.complex64
-    ):
+                 theta: tf.Tensor = None,
+                 global_shift: float = None,
+                 dtype = tf.complex64):
         """Wrap a HPowGate instance.
         """
-
-        theta = tf.scalar_mul(np.pi/2, theta)
-        theta = tf.cast(theta, dtype)
         self._exponent = theta
         self._global_shift = global_shift
         self._qubits = [qubit.x]
@@ -132,8 +113,6 @@ class WrapHPowGate(BaseTFGate):
             [tf.cos(theta) - 1j * tf.sin(theta), -1j * tf.sin(theta)],
             [-1j * tf.sin(theta), tf.cos(theta) + 1j * tf.sin(theta)]
         ])
-
-        # FIXME: can't do this... need variable to be carried thru op
         self._tensor = tf.scalar_mul(tf.exp(1j*theta)/np.sqrt(2), self._tensor)
 
 
@@ -142,21 +121,21 @@ class WrapCNotPowGate(BaseTFGate):
     def __init__(self, *qubits: List[int],
                  theta: tf.Tensor = None,
                  global_shift: float = None,
-                 dtype = tf.complex64
-    ):
+                 dtype = tf.complex64):
         """Wrap a CNotPowGate instance.
         """
 
-        theta = tf.scalar_mul(np.pi/2, theta)
-        theta = tf.cast(theta, dtype)
+
         self._exponent = theta
         self._global_shift = global_shift
         self._qubits = [qubits[0].x, qubits[1].x]
         self._tensor = tf.convert_to_tensor([
             [1, 0, 0, 0],
             [0, 1, 0, 0],
-            [0, 0, tf.exp(1j*theta) * tf.cos(theta), -1j * tf.exp(1j*theta) * tf.sin(theta)],
-            [0, 0, -1j * tf.exp(1j*theta) * tf.sin(theta), tf.exp(1j*theta) * tf.cos(theta)]
+            [0, 0, tf.exp(1j*theta) * tf.cos(theta),
+                -1j * tf.exp(1j*theta) * tf.sin(theta)],
+            [0, 0, -1j * tf.exp(1j*theta) * tf.sin(theta),
+                tf.exp(1j*theta) * tf.cos(theta)]
         ])
 
 
@@ -169,9 +148,6 @@ class WrapSwapPowGate(BaseTFGate):
     ):
         """Wrap a ISwapPowGate instance.
         """
-
-        theta = tf.scalar_mul(np.pi/2, theta)
-        theta = tf.cast(theta, dtype)
         self._exponent = theta
         self._global_shift = global_shift
         self._qubits = [qubits[0].x, qubits[1].x]
@@ -200,9 +176,11 @@ ALL_WRAPPERS = {
 }
 
 
-def _promote_scalar_to_tf(v: Any, dtype=tf.complex64) -> Union[tf.Tensor, tf.Variable]:
+def _promote_and_cast(v: Any, dtype=tf.complex64) -> Union[tf.Tensor, tf.Variable]:
+    """Convert numerics to Tensors of specified type."""
     if isinstance(v, (tf.Variable, tf.Tensor)):
-        return v
+        #TODO: typechecking to avoid unecessary casting ops
+        return tf.cast(v, dtype)
     if isinstance(v, numbers.Number):
         return tf.constant(v, dtype=dtype)
     raise NotImplementedError(
@@ -213,12 +191,18 @@ def _promote_scalar_to_tf(v: Any, dtype=tf.complex64) -> Union[tf.Tensor, tf.Var
 def tf_gate_wrapper(inst: cirq.EigenGate, dtype=tf.complex64) -> BaseTFGate:
 
     # todo: notimplemented case checking
-    theta = _promote_scalar_to_tf(getattr(inst._gate, 'exponent', 1))
-    global_shift = _promote_scalar_to_tf(getattr(inst._gate, '_global_shift', 0))
+    theta = _promote_and_cast(getattr(inst._gate, 'exponent', 1), dtype=dtype)
+    # todo: update docs to reflect rad input
+    theta = tf.scalar_mul(tf.constant(np.pi/2, dtype=dtype), theta)
+    global_shift = _promote_and_cast(getattr(inst._gate, '_global_shift', 0), dtype=dtype)
 
-    return ALL_WRAPPERS.get(
-        type(inst._gate))(*inst.qubits, theta=theta, global_shift=global_shift, dtype=dtype
-    )
+    wrapper = ALL_WRAPPERS.get(type(inst._gate), NotImplemented)
+    if wrapper is not NotImplemented:
+        return wrapper(
+            *inst.qubits, theta=theta, global_shift=global_shift, dtype=dtype)
+
+    raise NotImplementedError(
+        "gate {} not implemented in gate wrappers".format(type(inst)))
 
 
 ### DO NOT DELETE

@@ -101,9 +101,6 @@ class TFWaveFunctionSimulator(
     def _simulate_unitary(self, op: ops.Operation, data: _StateAndBuffer,
             indices: List[int]) -> _StateAndBuffer:
         """Core method: Compose the next chunk of the computation graph."""
-        print("PIIING")
-        print(data.state)
-        print(data.buffer)
         data.state = tf_apply_unitary(
             op,
             args=ApplyTFUnitaryArgs(target_tensor=data.state,
@@ -116,14 +113,17 @@ class TFWaveFunctionSimulator(
         # data.state = result
 
     # SimulatesFinalState abc method
+    # FIXME: I don't want to use cirq's built-in param resolution here...
     def simulate_sweep(
         self,
         program: Union[circuits.Circuit],
         params: study.Sweepable,
         qubit_order: ops.QubitOrderOrList = ops.QubitOrder.DEFAULT,
-        initial_state: Any = None,
-    ) -> List['SimulationTrialResult']:
+        initial_state: Any = None) -> List[tf.Tensor]:
         """Simulates the supplied Circuit or Schedule.
+
+        Note: This differs from cirq.WaveFunctionSimulator in the return
+        type, which is List[tf.tensor] instead of List[SimulationTrialResult].
 
         This method returns a result which allows access to the entire
         wave function. In contrast to simulate, this allows for sweeping
@@ -140,8 +140,8 @@ class TFWaveFunctionSimulator(
                 documentation of the implementing class for details.
 
         Returns:
-            List of SimulationTrialResults for this run, one for each
-            possible parameter resolver.
+            List of wavefunctions for this run, one for each possible parameter
+                resolver.
         """
         # 1. checking/promotion of initial state to track qubits
         # TODO: enforce sizing on initial_state; don't want any stray/missing qubits
@@ -179,18 +179,19 @@ class TFWaveFunctionSimulator(
             # prepare to iteratively construct graph down the line of ops
             state_and_buff = _StateAndBuffer(state, None) # initializer
             for op, inds in zip(self.ops, self.indices):
-                print("my op", op)
                 # can't flush the buffer!!
                 # buf = tf.assign(tf.get_variable(name='buffer'), tf.zeros_like(state, dtype=self._dtype))
                 buf = tf.zeros_like(state, dtype=self._dtype)
                 state_and_buff = _StateAndBuffer(state_and_buff.state, buf)
                 state_and_buff = self._simulate_unitary(op, state_and_buff, inds)
 
-            trial_results.append(
-                SimulationTrialResult(
-                    params=param_resolver,
-                    measurements={},
-                    final_simulator_state=state_and_buff.state))
+            # TODO: actually make sweep usable by supplying parameters here..?
+            # trial_results.append(
+            #     SimulationTrialResult(
+            #         params=param_resolver,
+            #         measurements={},
+            #         final_simulator_state=state_and_buff.state))
+            trial_results.append(state_and_buff.state)
 
         return trial_results
 # def astensor(array):
