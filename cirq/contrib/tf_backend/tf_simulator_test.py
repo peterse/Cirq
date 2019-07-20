@@ -61,8 +61,55 @@ def test_run_correlations(dtype):
             sess.run(tf.global_variables_initializer())
             wf = sess.run(circuit_op)
         measurements = cirq.sample_state_vector(wf.reshape(-1), [0, 1])
-        # bits = result.measurements['0,1'][0]
-        # assert bits[0] == bits[1]
+
+
+
+
+def get_parametrized_two_qubit_gates():
+    return [
+        cirq.SwapPowGate,
+        cirq.CNotPowGate,
+        cirq.ISwapPowGate,
+        cirq.ZZPowGate,
+        cirq.CZ,
+    ]
+
+def get_two_qubit_gates():
+    return [
+
+    ]
+
+def get_parametrized_single_qubit_gates():
+    return [
+
+    ]
+
+
+@pytest.mark.parametrize(
+    'gate', [cirq.X, cirq.Y, cirq.Z, cirq.H, cirq.S, cirq.T])
+def test_tf_wavefunction_simulator_vs_cirq_single_qubit_gates():
+    return
+
+
+@pytest.mark.parametrize(
+    'gate', [cirq.Rx, cirq.Ry, cirq.Rz])
+def test_tf_wavefunction_simulator_vs_cirq_parametrized_single_qubit_gates():
+    return
+
+
+@pytest.mark.parametrize(
+    'gate', [cirq.CNOT, cirq.SWAP])
+def test_tf_wavefunction_simulator_vs_cirq_two_qubit_gates():
+    return
+
+
+@pytest.mark.parametrize('gate', [cirq.SwapPowGate,
+                                  cirq.CNotPowGate,
+                                  cirq.ISwapPowGate,
+                                  cirq.ZZPowGate,
+                                  cirq.CZ])
+def test_tf_wavefunction_simulator_vs_cirq_parametrized_two_qubit_gates():
+    return
 
 
 # @pytest.mark.parametrize('dtype', [np.complex64, np.complex128])

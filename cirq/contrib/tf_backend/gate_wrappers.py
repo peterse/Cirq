@@ -189,7 +189,7 @@ class WrapZZPowGate(BaseTFGate):
         self._dtype = dtype
         self._tensor = tf.zeros((4, 4), dtype=dtype)
         self._tensor = self._tensor_from_eigencomponents(self._tensor)
-        self._tensor = tf.reshape(self._tensor, (2,2,2,2))
+        self._tensor = tf.reshape(self._tensor, (2, 2, 2, 2))
         self._qubits = [qubits[0].x, qubits[1].x]
 
     def _eigen_components(self):
@@ -200,6 +200,7 @@ class WrapZZPowGate(BaseTFGate):
             (tf.constant(1, dtype=self._dtype),
                 tf.convert_to_tensor(np.diag([0, 1, 1, 0]), dtype=self._dtype)),
         ]
+
 
 ALL_WRAPPERS = {
     cirq.ops.pauli_gates._PauliX: WrapXPowGate,
