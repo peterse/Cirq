@@ -65,6 +65,7 @@ def test_run_correlations(dtype):
         with tf.Session() as sess:
             wf = sess.run(circuit_op)
         measurements = cirq.sample_state_vector(wf.reshape(-1), [0, 1])
+    # TODO: assertion?
 
 
 @pytest.mark.parametrize('g', [cirq.X, cirq.Y, cirq.Z, cirq.H, cirq.S, cirq.T])
