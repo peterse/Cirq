@@ -137,6 +137,7 @@ class WrapCNotPowGate(BaseTFGate):
             [0, 0, -1j * tf.exp(1j*theta) * tf.sin(theta),
                 tf.exp(1j*theta) * tf.cos(theta)]
         ])
+        self._tensor = tf.reshape(self._tensor, (2,2,2,2))
 
 
 class WrapSwapPowGate(BaseTFGate):
@@ -157,6 +158,7 @@ class WrapSwapPowGate(BaseTFGate):
             [0, -1j * tf.exp(1j*theta) * tf.sin(theta), tf.exp(1j*theta) * tf.cos(theta), 0],
             [0, 0, 0, 1]
         ])
+        self._tensor = tf.reshape(self._tensor, (2,2,2,2))
 
 
 ALL_WRAPPERS = {

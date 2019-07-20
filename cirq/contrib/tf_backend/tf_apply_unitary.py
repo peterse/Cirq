@@ -62,12 +62,10 @@ class ApplyTFUnitaryArgs(cirq.ApplyUnitaryArgs):
         self.axes = tuple(axes)
 
 
-def tf_targeted_left_multiply(
-        left_matrix:tf.Tensor,
-        right_target:tf.Tensor,
-        target_axes: Sequence[int],
-        out: Optional[np.ndarray] = None
-        ) -> np.ndarray:
+def tf_targeted_left_multiply(left_matrix:tf.Tensor,
+                              right_target:tf.Tensor,
+                              target_axes: Sequence[int],
+                              out: Optional[np.ndarray] = None) -> np.ndarray:
     """Left-multiplies the given axes of the target tensor by the given matrix.
     Note that the matrix must have a compatible tensor structure.
     For example, if you have an 6-qubit state vector `input_state` with shape
@@ -108,17 +106,14 @@ def tf_targeted_left_multiply(
     target_strip = tf_index_map(data_indices)
     output_keep = tf_index_map(output_indices)
     einsum_str = f"{input_strip},{target_strip}->{output_keep}"
-
-    print("left", left_matrix)
-    print("right", right_target)
     right_target = tf.einsum(einsum_str, left_matrix, right_target)
     return right_target
 
 
 def tf_apply_unitary(unitary_value: Any,
-                  args: ApplyTFUnitaryArgs,
-                  default: TDefault = RaiseTypeErrorIfNotProvided
-                  ) -> Union[tf.Tensor, TDefault]:
+                     args: ApplyTFUnitaryArgs,
+                     default: TDefault = RaiseTypeErrorIfNotProvided
+                     ) -> Union[tf.Tensor, TDefault]:
     """High performance left-multiplication of a unitary effect onto a tensor.
     If `unitary_value` defines an `_apply_unitary_` method, that method will be
     used to apply `unitary_value`'s unitary effect to the target tensor.
@@ -163,12 +158,9 @@ def tf_apply_unitary(unitary_value: Any,
 
     # Fallback to using the object's _unitary_ matrix.
     matrix = unitary(unitary_value, None)
-    print("hello from apply_unitary", matrix)
     if matrix is not None:
-
         # Fallback to tf.einsum for the general case.
         # TODO: ensure shape (2,2,2,2....) in general
-        # TODO: ensure consistent datatypes
         return tf_targeted_left_multiply(
             matrix,
             args.target_tensor,

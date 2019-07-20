@@ -22,12 +22,12 @@ def test_tf_wavefunction_simulator_instantiate():
 
 def test_tf_wavefunction_simulator_dense_circuit_conversion():
 
-    # single qubit
+    # FIXME: impose assertions
     circuit = cirq.Circuit.from_ops([
         cirq.YPowGate(exponent=tf.Variable(1, tf.float64))(cirq.LineQubit(0)),
         cirq.YPowGate(exponent=tf.Variable(1, tf.float64))(cirq.LineQubit(1)),
         cirq.XPowGate(exponent=tf.Variable(1, tf.float64))(cirq.LineQubit(0))])
-    initial_state = np.asarray([1, 0])
+    initial_state = np.asarray([1, 0, 0, 0])
     tf_sim = TFWaveFunctionSimulator().simulate(circuit, initial_state=initial_state)
 
 
@@ -38,18 +38,16 @@ def test_run_bit_flips(dtype):
     simulator = TFWaveFunctionSimulator(dtype=dtype)
     for b0 in [0, 1]:
         for b1 in [0, 1]:
-            circuit = cirq.Circuit.from_ops((cirq.X**b0)(q0),
-                                            (cirq.X**b1)(q1),
-                                            )
+            circuit = cirq.Circuit.from_ops((cirq.X**b0)(q0), (cirq.X**b1)(q1))
             circuit_op = simulator.simulate(circuit)
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             wf = sess.run(circuit_op)
         measurements = cirq.sample_state_vector(wf, [0, 1])
-        np.testing.assert_equal(measurements, {'0': [b0], '1': [b1]})
+        np.testing.assert_array_almost_equal(measurements[0], [b0, b1])
         expected_state = np.zeros(shape=(2, 2))
         expected_state[b0][b1] = 1.0
-        np.testing.assert_equal(wf, np.reshape(expected_state, 4))
+        cirq.testing.assert_allclose_up_to_global_phase(wf.reshape(-1), np.reshape(expected_state, 4), atol=1e-6)
 
 
 @pytest.mark.parametrize('dtype', [tf.complex64, tf.complex128])
@@ -62,8 +60,7 @@ def test_run_correlations(dtype):
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             wf = sess.run(circuit_op)
-        measurements = cirq.sample_state_vector(wf, [0, 1])
-        print(measurements)
+        measurements = cirq.sample_state_vector(wf.reshape(-1), [0, 1])
         # bits = result.measurements['0,1'][0]
         # assert bits[0] == bits[1]
 
@@ -85,7 +82,7 @@ def test_run_correlations(dtype):
 
 
 if __name__ == "__main__":
-    test_tf_wavefunction_simulator_dense_circuit_conversion()
+    test_run_bit_flips(tf.complex64)
 #
 # @pytest.mark.parametrize('dtype', [np.complex64, np.complex128])
 # def test_run_repetitions_measure_at_end(dtype):

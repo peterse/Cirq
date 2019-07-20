@@ -55,7 +55,6 @@ class HasApplyMutateInline:
     def _apply_unitary_(self, args: ApplyTFUnitaryArgs) -> tf.Tensor:
         # FIXME: NOT SURE IF THIS IS GOING TO TURN OUT WELL...
         one = [args.subspace_index(1)]
-        print(one[0])
         ref1 = [tf.scalar_mul(-1, args.target_tensor[one[0]])]
         x = tf.Variable(args.target_tensor)
         x = x[one[0]].assign(ref1[0])
