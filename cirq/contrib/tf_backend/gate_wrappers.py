@@ -94,8 +94,8 @@ class WrapYPowGate(BaseTFGate):
         self._global_shift = global_shift
         self._qubits = [qubit.x]
         self._tensor = tf.convert_to_tensor([
-            [tf.cos(theta), tf.sin(theta)],
-            [-tf.sin(theta), tf.cos(theta)]
+            [tf.cos(theta), -tf.sin(theta)],
+            [tf.sin(theta), tf.cos(theta)]
         ])
         self._tensor = tf.scalar_mul(
             tf.exp(1j * theta), self._tensor)
@@ -115,7 +115,7 @@ class WrapZPowGate(BaseTFGate):
         #FIXME: implement global_shift
         self._tensor = tf.convert_to_tensor([
             [1, 0],
-            [0, tf.exp(1j * theta * np.pi)]
+            [0, tf.exp(1j * theta * 2)]
         ])
 
 
