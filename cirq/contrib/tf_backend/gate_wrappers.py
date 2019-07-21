@@ -69,11 +69,15 @@ class WrapXPowGate(BaseTFGate):
         learnability is handled at exponent instantiation.
 
         """
-
+        self._exponent = theta
+        self._global_shift = global_shift
+        self._qubits = [qubit.x]
         self._tensor = tf.convert_to_tensor([
             [tf.cos(theta), -1.0j * tf.sin(theta)],
             [-1.0j * tf.sin(theta), tf.cos(theta)],
         ])
+        self._tensor = tf.scalar_mul(
+            tf.exp(1j * theta), self._tensor)
         # TODO: different classing structure that will let me track qubits
         # super().__init__(tensor, [qubit], [theta])
 
@@ -90,9 +94,11 @@ class WrapYPowGate(BaseTFGate):
         self._global_shift = global_shift
         self._qubits = [qubit.x]
         self._tensor = tf.convert_to_tensor([
-            [tf.cos(theta), -1.0*tf.sin(theta)],
-            [tf.sin(theta), tf.cos(theta)]
+            [tf.cos(theta), tf.sin(theta)],
+            [-tf.sin(theta), tf.cos(theta)]
         ])
+        self._tensor = tf.scalar_mul(
+            tf.exp(1j * theta), self._tensor)
 
 
 class WrapZPowGate(BaseTFGate):
@@ -106,9 +112,10 @@ class WrapZPowGate(BaseTFGate):
         self._exponent = theta
         self._global_shift = global_shift
         self._qubits = [qubit.x]
+        #FIXME: implement global_shift
         self._tensor = tf.convert_to_tensor([
-            [tf.cos(theta) - 1j * tf.sin(theta), 0],
-            [0, tf.cos(theta) + 1j * tf.sin(theta)]
+            [1, 0],
+            [0, tf.exp(1j * theta * np.pi)]
         ])
 
 
@@ -234,12 +241,14 @@ def _promote_and_cast(v: Any, dtype=tf.complex64) -> Union[tf.Tensor, tf.Variabl
 # FIXME: is inst always an eigengate..?
 def tf_gate_wrapper(inst: cirq.EigenGate, dtype=tf.complex64) -> BaseTFGate:
 
+    print(inst)
+    print("exponent", inst._gate.exponent)
+    print("global_shift", inst._gate._global_shift)
     # todo: notimplemented case checking
     theta = _promote_and_cast(getattr(inst._gate, 'exponent', 1), dtype=dtype)
     # todo: update docs to reflect rad input
     theta = tf.scalar_mul(tf.constant(np.pi/2, dtype=dtype), theta)
     global_shift = _promote_and_cast(getattr(inst._gate, '_global_shift', 0), dtype=dtype)
-
     wrapper = ALL_WRAPPERS.get(type(inst._gate), NotImplemented)
     if wrapper is not NotImplemented:
         return wrapper(

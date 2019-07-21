@@ -18,15 +18,23 @@ def q(i):
 
 def test_tf_gate_wrapper_gate_inheritance():
     """Wrapping a gate instance with a wrapper base class."""
+    np.set_printoptions(precision=2)
     for g in [cirq.X, cirq.Y, cirq.Z, cirq.H]:
         inst = g(q(0))
         wrapped = tf_gate_wrapper(inst, tf.complex64)
+        with tf.Session() as sess:
+            print(sess.run(wrapped._tensor))
+    return
     for g in [cirq.Rx, cirq.Ry, cirq.Rz]:
-        inst = g(2.71)(q(0))
+        inst = g(0)(q(0))
         wrapped = tf_gate_wrapper(inst, tf.complex64)
+        with tf.Session() as sess:
+            print(sess.run(wrapped._tensor))
     for g in [cirq.CNOT, cirq.SWAP]:
         inst = g(q(0), q(1))
         wrapped = tf_gate_wrapper(inst, tf.complex64)
+        with tf.Session() as sess:
+            print(sess.run(wrapped._tensor).reshape((4,4)))
 
 
 def test_tf_gate_wrapper_eigengate():
