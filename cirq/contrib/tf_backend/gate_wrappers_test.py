@@ -23,37 +23,37 @@ def test_tf_gate_wrapper_gate_inheritance():
         inst = g(q(0))
         wrapped = tf_gate_wrapper(inst, tf.complex64)
         with tf.Session() as sess:
-            tf_inst = sess.run(wrapped._tensor)
-        np.testing.assert_array_almost_equal(cirq.unitary(inst), tf_inst)
+            print(sess.run(wrapped._tensor))
+    return
     for g in [cirq.Rx, cirq.Ry, cirq.Rz]:
         inst = g(0)(q(0))
         wrapped = tf_gate_wrapper(inst, tf.complex64)
         with tf.Session() as sess:
-            tf_inst = sess.run(wrapped._tensor)
-        np.testing.assert_array_almost_equal(cirq.unitary(inst), tf_inst)
-
+            print(sess.run(wrapped._tensor))
     for g in [cirq.CNOT, cirq.SWAP]:
         inst = g(q(0), q(1))
         wrapped = tf_gate_wrapper(inst, tf.complex64)
         with tf.Session() as sess:
-            tf_inst = sess.run(wrapped._tensor).reshape((4,4))
-        np.testing.assert_array_almost_equal(cirq.unitary(inst), tf_inst)
+            print(sess.run(wrapped._tensor).reshape((4,4)))
 
 
 def test_tf_gate_wrapper_eigengate():
     for g in [cirq.XPowGate, cirq.YPowGate, cirq.ZPowGate,  cirq.HPowGate]:
+<<<<<<< HEAD
         # FIXME: somethings wrong with HPowGate
         inst = g(exponent=1.5)(q(0))
         wrapped = tf_gate_wrapper(inst, tf.complex64)
         with tf.Session() as sess:
             tf_inst = sess.run(wrapped._tensor)
         np.testing.assert_array_almost_equal(cirq.unitary(inst), tf_inst)
+=======
+        inst = g(exponent=3.84)(q(0))
+        tf_gate_wrapper(inst)
+>>>>>>> parent of 6eb5476... todo: refactor gate wrapper unitary comparisons, test ZZPowGate, debug WrapHPowGate...
     for g in [cirq.CNotPowGate, cirq.SwapPowGate,]:
         inst = g(exponent=3.84)(q(0), q(1))
-        wrapped = tf_gate_wrapper(inst, tf.complex64)
-        with tf.Session() as sess:
-            tf_inst = sess.run(wrapped._tensor)
-        np.testing.assert_array_almost_equal(cirq.unitary(inst), tf_inst.reshape((4,4)))
+        tf_gate_wrapper(inst)
+
 
 def test_tf_gate_wrapper_parity_gate():
     for g in [cirq.ZZPowGate]:
