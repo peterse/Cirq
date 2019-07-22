@@ -42,7 +42,8 @@ def test_tf_gate_wrapper_gate_inheritance():
 
 def test_tf_gate_wrapper_eigengate():
     for g in [cirq.XPowGate, cirq.YPowGate, cirq.ZPowGate,  cirq.HPowGate]:
-        inst = g(exponent=1)(q(0))
+        # FIXME: somethings wrong with HPowGate
+        inst = g(exponent=1.5)(q(0))
         wrapped = tf_gate_wrapper(inst, tf.complex64)
         with tf.Session() as sess:
             tf_inst = sess.run(wrapped._tensor)
