@@ -14,9 +14,10 @@
 
 
 from cirq.protocols.apply_unitary import (
+    apply_unitaries,
     apply_unitary,
     ApplyUnitaryArgs,
-    SupportsApplyUnitary,
+    SupportsConsistentApplyUnitary,
 )
 from cirq.protocols.apply_channel import (
     apply_channel,
@@ -48,6 +49,8 @@ from cirq.protocols.decompose import (
     SupportsDecompose,
     SupportsDecomposeWithQubits,
 )
+from cirq.protocols.equal_up_to_global_phase import (
+    equal_up_to_global_phase,)
 from cirq.protocols.inverse import (
     inverse,
 )
@@ -94,8 +97,17 @@ from cirq.protocols.phase import (
     phase_by,
     SupportsPhase,
 )
+from cirq.protocols.qid_shape_protocol import (
+    num_qubits,
+    qid_shape,
+    SupportsExplicitQidShape,
+    SupportsExplicitNumQubits,
+)
 from cirq.protocols.unitary import (
-    has_unitary,
     SupportsUnitary,
     unitary,
+)
+from cirq.protocols.has_unitary import (
+    has_unitary,
+    SupportsExplicitHasUnitary,
 )

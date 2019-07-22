@@ -56,10 +56,10 @@ class GateOperation(raw_types.Operation):
         """The qubits targeted by the operation."""
         return self._qubits
 
-    def with_qubits(self, *new_qubits: raw_types.Qid) -> 'GateOperation':
+    def with_qubits(self, *new_qubits: raw_types.Qid) -> 'raw_types.Operation':
         return self.gate.on(*new_qubits)
 
-    def with_gate(self, new_gate: raw_types.Gate) -> 'GateOperation':
+    def with_gate(self, new_gate: raw_types.Gate) -> 'raw_types.Operation':
         return new_gate.on(*self.qubits)
 
     def __repr__(self):
@@ -96,6 +96,12 @@ class GateOperation(raw_types.Operation):
     def _value_equality_values_(self):
         return self.gate, self._group_interchangeable_qubits()
 
+    def _qid_shape_(self):
+        return protocols.qid_shape(self.gate)
+
+    def _num_qubits_(self):
+        return len(self._qubits)
+
     def _decompose_(self) -> op_tree.OP_TREE:
         return protocols.decompose_once_with_qubits(self.gate,
                                                     self.qubits,
@@ -106,16 +112,13 @@ class GateOperation(raw_types.Operation):
 
     def _apply_unitary_(self, args: protocols.ApplyUnitaryArgs
                         ) -> Union[np.ndarray, None, NotImplementedType]:
-        return protocols.apply_unitary(
-            self.gate,
-            args,
-            default=NotImplemented)
+        return protocols.apply_unitary(self.gate, args, default=None)
 
     def _has_unitary_(self) -> bool:
         return protocols.has_unitary(self.gate)
 
     def _unitary_(self) -> Union[np.ndarray, NotImplementedType]:
-        return protocols.unitary(self.gate, NotImplemented)
+        return protocols.unitary(self.gate, default=None)
 
     def _has_mixture_(self) -> bool:
         return protocols.has_mixture(self.gate)
@@ -159,7 +162,7 @@ class GateOperation(raw_types.Operation):
             return NotImplemented
         return GateOperation(phased_gate, self._qubits)
 
-    def __pow__(self, exponent: Any) -> 'GateOperation':
+    def __pow__(self, exponent: Any) -> 'raw_types.Operation':
         """Raise gate to a power, then reapply to the same qubits.
 
         Only works if the gate implements cirq.ExtrapolatableEffect.
@@ -196,3 +199,10 @@ def op_gate_of_type(op: raw_types.Operation,
     if isinstance(op, GateOperation) and isinstance(op.gate, gate_type):
         return op.gate
     return None
+
+
+def op_gate_isinstance(op: raw_types.Operation, gate_type: Type[TV]) -> bool:
+    """Returns True if op has that gate type otherwise False."""
+    if isinstance(op, GateOperation):
+        return isinstance(op.gate, gate_type)
+    return False

@@ -127,10 +127,9 @@ class Simulator(simulator.SimulatesSamples,
             dtype: The `numpy.dtype` used by the simulation. One of
             `numpy.complex64` or `numpy.complex128`
         """
-        if dtype not in {np.complex64, np.complex128}:
+        if np.dtype(dtype).kind != 'c':
             raise ValueError(
-                'dtype must be complex64 or complex128 but was {}'.format(
-                    dtype))
+                'dtype must be a complex type but was {}'.format(dtype))
         self._dtype = dtype
 
     def _run(
@@ -145,8 +144,7 @@ class Simulator(simulator.SimulatesSamples,
             return protocols.is_measurement(op) or protocols.has_mixture(op)
         if circuit.are_all_matches_terminal(measure_or_mixture):
             return self._run_sweep_sample(resolved_circuit, repetitions)
-        else:
-            return self._run_sweep_repeat(resolved_circuit, repetitions)
+        return self._run_sweep_repeat(resolved_circuit, repetitions)
 
     def _run_sweep_sample(
         self,
@@ -339,8 +337,8 @@ class SparseSimulatorStep(wave_function.StateVectorMixin,
         self._dtype = dtype
         self._state_vector = np.reshape(state_vector, 2 ** len(qubit_map))
 
-    def simulator_state(
-        self) -> wave_function_simulator.WaveFunctionSimulatorState:
+    def _simulator_state(self
+                        ) -> wave_function_simulator.WaveFunctionSimulatorState:
         return wave_function_simulator.WaveFunctionSimulatorState(
             qubit_map=self.qubit_map,
             state_vector=self._state_vector)
@@ -371,7 +369,7 @@ class SparseSimulatorStep(wave_function.StateVectorMixin,
                  6  |   1    |   1    |   0
                  7  |   1    |   1    |   1
         """
-        return self.simulator_state().state_vector
+        return self._simulator_state().state_vector
 
     def set_state_vector(self, state: Union[int, np.ndarray]):
         update_state = wave_function.to_valid_state_vector(state,

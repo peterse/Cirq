@@ -155,8 +155,8 @@ class XmonSimulator(sim.SimulatesSamples,
         # Delegate to appropriate method based on contents.
         if circuit.are_all_measurements_terminal():
             return self._run_sweep_sample(circuit, repetitions)
-        else:
-            return self._run_sweep_repeat(circuit, repetitions)
+
+        return self._run_sweep_repeat(circuit, repetitions)
 
     def _run_sweep_repeat(self,
                           circuit: circuits.Circuit,
@@ -317,11 +317,10 @@ class XmonStepResult(sim.StateVectorMixin, sim.WaveFunctionStepResult):
             stepper: xmon_stepper.Stepper,
             qubit_map: Dict,
             measurements: Dict[str, np.ndarray]) -> None:
-        self.qubit_map = qubit_map or {}
-        self.measurements = measurements or collections.defaultdict(list)
+        super().__init__(measurements=measurements, qubit_map=qubit_map)
         self._stepper = stepper
 
-    def simulator_state(self) -> sim.WaveFunctionSimulatorState:
+    def _simulator_state(self) -> sim.WaveFunctionSimulatorState:
         return sim.WaveFunctionSimulatorState(
             state_vector=self._stepper.current_state, qubit_map=self.qubit_map)
 

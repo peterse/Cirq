@@ -14,6 +14,12 @@
 
 """Utilities for testing code."""
 
+from cirq.testing.asynchronous import (
+    assert_asyncio_still_running,
+    assert_asyncio_will_have_result,
+    assert_asyncio_will_raise,
+)
+
 from cirq.testing.circuit_compare import (
     assert_circuits_with_terminal_measurements_are_equivalent,
     assert_eigen_gate_has_consistent_apply_unitary,
@@ -22,6 +28,7 @@ from cirq.testing.circuit_compare import (
     assert_has_diagram,
     assert_same_circuits,
     highlight_text_differences,
+    assert_has_consistent_qid_shape,
 )
 
 from cirq.testing.consistent_phase_by import (

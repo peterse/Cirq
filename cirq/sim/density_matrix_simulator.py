@@ -147,8 +147,7 @@ class DensityMatrixSimulator(simulator.SimulatesSamples,
 
         if circuit.are_all_measurements_terminal():
             return self._run_sweep_sample(resolved_circuit, repetitions)
-        else:
-            return self._run_sweep_repeat(resolved_circuit, repetitions)
+        return self._run_sweep_repeat(resolved_circuit, repetitions)
 
     def _run_sweep_sample(self,
                           circuit: circuits.Circuit,
@@ -475,7 +474,7 @@ class DensityMatrixStepResult(simulator.StepResult):
         self._qubit_map = qubit_map
         self._dtype = dtype
 
-    def simulator_state(self) -> 'DensityMatrixSimulatorState':
+    def _simulator_state(self) -> 'DensityMatrixSimulatorState':
         return DensityMatrixSimulatorState(self._density_matrix,
                                            self._qubit_map)
 
@@ -494,9 +493,11 @@ class DensityMatrixStepResult(simulator.StepResult):
         """
         density_matrix = density_matrix_utils.to_valid_density_matrix(
             density_matrix_repr, len(self._qubit_map), self._dtype)
-        density_matrix = np.reshape(density_matrix,
-                                    self.simulator_state().density_matrix.shape)
-        np.copyto(dst=self.simulator_state().density_matrix, src=density_matrix)
+        density_matrix = np.reshape(
+            density_matrix,
+            self._simulator_state().density_matrix.shape)
+        np.copyto(dst=self._simulator_state().density_matrix,
+                  src=density_matrix)
 
     def density_matrix(self):
         """Returns the density matrix at this step in the simulation.
@@ -534,8 +535,7 @@ class DensityMatrixStepResult(simulator.StepResult):
             repetitions: int = 1) -> np.ndarray:
         indices = [self._qubit_map[q] for q in qubits]
         return density_matrix_utils.sample_density_matrix(
-            self.simulator_state().density_matrix,
-            indices, repetitions)
+            self._simulator_state().density_matrix, indices, repetitions)
 
 
 @value.value_equality(unhashable=True)
@@ -618,10 +618,10 @@ class DensityMatrixTrialResult(simulator.SimulationTrialResult):
     def _value_equality_values_(self):
         measurements = {k: v.tolist() for k, v in
                         sorted(self.measurements.items())}
-        return (self.params, measurements, self.final_simulator_state)
+        return (self.params, measurements, self._final_simulator_state)
 
     def __repr__(self):
         return ("cirq.DensityMatrixTrialResult(params={!r}, measurements={!r}, "
-                "final_simulator_state={!r})"
-                .format(self.params, self.measurements,
-                        self.final_simulator_state))
+                "final_simulator_state={!r})".format(
+                    self.params, self.measurements,
+                    self._final_simulator_state))
