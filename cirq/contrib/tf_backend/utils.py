@@ -1,7 +1,17 @@
 import tensorflow as tf
 
 def tensorboard_session(tensor, feed_dict, fout='./temp'):
-    """Inspection tool for tensorboard."""
+    """Inspection tool for tensorboard.
+
+    The log directory will be saved to `fout`. To spin up a tensorboard host
+    using the default log directory, call:
+
+        tensorboard --logdir=temp
+
+    To get a proper graph visualization, there must be at least one variable
+    tracked  through the graph using a summary function like
+    `tf.summary.scalar`. 
+    """
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         result = sess.run(tensor)

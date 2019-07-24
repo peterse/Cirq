@@ -34,13 +34,12 @@ def test_tf_gate_wrapper_gate_inheritance():
         inst = g(q(0), q(1))
         wrapped = tf_gate_wrapper(inst, tf.complex64)
         with tf.Session() as sess:
-            print(sess.run(wrapped._tensor).reshape((4,4)))
+            tf_inst = sess.run(wrapped._tensor).reshape((4,4))
+        np.testing.assert_array_almost_equal(cirq.unitary(inst), tf_inst)
 
 
 def test_tf_gate_wrapper_eigengate():
     for g in [cirq.XPowGate, cirq.YPowGate, cirq.ZPowGate,  cirq.HPowGate]:
-        # FIXME: somethings wrong with HPowGate
-        print("g!", g)
         inst = g(exponent=1.5)(q(0))
         wrapped = tf_gate_wrapper(inst, tf.complex64)
         with tf.Session() as sess:
@@ -48,14 +47,19 @@ def test_tf_gate_wrapper_eigengate():
         np.testing.assert_array_almost_equal(cirq.unitary(inst), tf_inst)
     for g in [cirq.CNotPowGate, cirq.SwapPowGate,]:
         inst = g(exponent=3.84)(q(0), q(1))
-        tf_gate_wrapper(inst)
+        wrapped = tf_gate_wrapper(inst)
+        with tf.Session() as sess:
+            tf_inst = sess.run(wrapped._tensor).reshape((4,4))
+        np.testing.assert_array_almost_equal(cirq.unitary(inst), tf_inst)
 
 
 def test_tf_gate_wrapper_parity_gate():
     for g in [cirq.ZZPowGate]:
         inst = g(exponent=3.84)(q(0), q(1))
-        a = tf_gate_wrapper(inst)
-        print(a)
+        wrapped = tf_gate_wrapper(inst)
+        with tf.Session() as sess:
+            tf_inst = sess.run(wrapped._tensor).reshape((4,4))
+        np.testing.assert_array_almost_equal(cirq.unitary(inst), tf_inst)
 
 def test_tf_gate_wrapper_tensor_inputs():
     # TODO
@@ -64,7 +68,3 @@ def test_tf_gate_wrapper_tensor_inputs():
     inst = cirq.YPowGate(exponent=t)(q(0))
     wrapped = tf_gate_wrapper(inst)
     print(wrapped._tensor)
-
-
-
-test_tf_gate_wrapper_parity_gate()

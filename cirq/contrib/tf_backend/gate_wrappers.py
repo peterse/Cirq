@@ -54,7 +54,7 @@ class BaseTFGate(cirq.SupportsUnitary, cirq.SupportsConsistentApplyUnitary):
             e = self._exponent
             g = self._global_shift
             tensor = tf.add(
-                tf.scalar_mul(tf.exp(1j * np.pi * e * (half_turns + g)),
+                tf.scalar_mul(tf.exp(1j * 2 * e * (half_turns + g)),
                               component), tensor)
         return tensor
 
@@ -112,7 +112,6 @@ class WrapZPowGate(BaseTFGate):
         self._exponent = theta
         self._global_shift = global_shift
         self._qubits = [qubit.x]
-        #FIXME: implement global_shift
         self._tensor = tf.convert_to_tensor([
             [1, 0],
             [0, tf.exp(1j * theta * 2)]
@@ -130,7 +129,6 @@ class WrapHPowGate(BaseTFGate):
         self._exponent = theta
         self._global_shift = global_shift
         self._qubits = [qubit.x]
-
         self._tensor = tf.convert_to_tensor([
             [tf.cos(theta) - 1j * tf.sin(theta)/np.sqrt(2), -1j * tf.sin(theta)/np.sqrt(2)],
             [-1j * tf.sin(theta)/np.sqrt(2), tf.cos(theta) + 1j * tf.sin(theta)/np.sqrt(2)]
@@ -242,9 +240,6 @@ def _promote_and_cast(v: Any, dtype=tf.complex64) -> Union[tf.Tensor, tf.Variabl
 # FIXME: is inst always an eigengate..?
 def tf_gate_wrapper(inst: cirq.EigenGate, dtype=tf.complex64) -> BaseTFGate:
 
-    print(inst)
-    print("exponent", inst._gate.exponent)
-    print("global_shift", inst._gate._global_shift)
     # todo: notimplemented case checking
     theta = _promote_and_cast(getattr(inst._gate, 'exponent', 1), dtype=dtype)
     # todo: update docs to reflect rad input
