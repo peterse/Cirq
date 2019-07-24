@@ -10,7 +10,7 @@ def tensorboard_session(tensor, feed_dict, fout='./temp'):
 
     To get a proper graph visualization, there must be at least one variable
     tracked  through the graph using a summary function like
-    `tf.summary.scalar`. 
+    `tf.summary.scalar`.
     """
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -24,7 +24,6 @@ def tensorboard_session(tensor, feed_dict, fout='./temp'):
         # Merge all the summaries and write them out to fout
         merged = tf.summary.merge_all()
         temp_writer = tf.summary.FileWriter('./temp', sess.graph)
-        tf.global_variables_initializer().run()
 
         summary = sess.run(merged, feed_dict=feed_dict)
         temp_writer.add_summary(summary, 0)

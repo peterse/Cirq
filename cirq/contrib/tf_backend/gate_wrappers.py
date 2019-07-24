@@ -64,7 +64,8 @@ class WrapXPowGate(BaseTFGate):
     def __init__(self, qubit: int,
                  theta: tf.Tensor = None,
                  global_shift: float = None,
-                 dtype = tf.complex64):
+                 dtype = tf.complex64,
+                 name = None):
         """Wrap a XPowGate instance.
         learnability is handled at exponent instantiation.
 
@@ -75,7 +76,7 @@ class WrapXPowGate(BaseTFGate):
         self._tensor = tf.convert_to_tensor([
             [tf.cos(theta), -1.0j * tf.sin(theta)],
             [-1.0j * tf.sin(theta), tf.cos(theta)],
-        ])
+        ], name=name)
         self._tensor = tf.scalar_mul(
             tf.exp(1j * theta), self._tensor)
         # TODO: different classing structure that will let me track qubits
@@ -87,7 +88,8 @@ class WrapYPowGate(BaseTFGate):
     def __init__(self, qubit: int,
                  theta: tf.Tensor = None,
                  global_shift: float = None,
-                 dtype = tf.complex64):
+                 dtype = tf.complex64,
+                 name = None,):
         """Wrap a YPowGate instance.
         """
         self._exponent = theta
@@ -96,7 +98,7 @@ class WrapYPowGate(BaseTFGate):
         self._tensor = tf.convert_to_tensor([
             [tf.cos(theta), -tf.sin(theta)],
             [tf.sin(theta), tf.cos(theta)]
-        ])
+        ], name=name)
         self._tensor = tf.scalar_mul(
             tf.exp(1j * theta), self._tensor)
 
@@ -106,7 +108,8 @@ class WrapZPowGate(BaseTFGate):
     def __init__(self, qubit: int,
                  theta: tf.Tensor = None,
                  global_shift: float = None,
-                 dtype = tf.complex64):
+                 dtype = tf.complex64,
+                 name = None):
         """Wrap a ZPowGate instance.
         """
         self._exponent = theta
@@ -115,7 +118,7 @@ class WrapZPowGate(BaseTFGate):
         self._tensor = tf.convert_to_tensor([
             [1, 0],
             [0, tf.exp(1j * theta * 2)]
-        ])
+        ], name=name)
 
 
 class WrapHPowGate(BaseTFGate):
@@ -123,7 +126,8 @@ class WrapHPowGate(BaseTFGate):
     def __init__(self, qubit: int,
                  theta: tf.Tensor = None,
                  global_shift: float = None,
-                 dtype = tf.complex64):
+                 dtype = tf.complex64,
+                 name = None):
         """Wrap a HPowGate instance.
         """
         self._exponent = theta
@@ -132,7 +136,7 @@ class WrapHPowGate(BaseTFGate):
         self._tensor = tf.convert_to_tensor([
             [tf.cos(theta) - 1j * tf.sin(theta)/np.sqrt(2), -1j * tf.sin(theta)/np.sqrt(2)],
             [-1j * tf.sin(theta)/np.sqrt(2), tf.cos(theta) + 1j * tf.sin(theta)/np.sqrt(2)]
-        ])
+        ], name=name)
         self._tensor = tf.scalar_mul(tf.exp(1j*theta), self._tensor)
 
 
@@ -141,7 +145,8 @@ class WrapCNotPowGate(BaseTFGate):
     def __init__(self, *qubits: List[int],
                  theta: tf.Tensor = None,
                  global_shift: float = None,
-                 dtype = tf.complex64):
+                 dtype = tf.complex64,
+                 name = None):
         """Wrap a CNotPowGate instance.
         """
 
@@ -156,7 +161,7 @@ class WrapCNotPowGate(BaseTFGate):
                 -1j * tf.exp(1j*theta) * tf.sin(theta)],
             [0, 0, -1j * tf.exp(1j*theta) * tf.sin(theta),
                 tf.exp(1j*theta) * tf.cos(theta)]
-        ])
+        ], name=name)
         self._tensor = tf.reshape(self._tensor, (2,2,2,2))
 
 
@@ -165,7 +170,8 @@ class WrapSwapPowGate(BaseTFGate):
     def __init__(self, *qubits: List[int],
                  theta: tf.Tensor = None,
                  global_shift: float = None,
-                 dtype = tf.complex64
+                 dtype = tf.complex64,
+                 name = None,
     ):
         """Wrap a ISwapPowGate instance.
         """
@@ -177,7 +183,7 @@ class WrapSwapPowGate(BaseTFGate):
             [0, tf.exp(1j*theta) * tf.cos(theta), -1j * tf.exp(1j*theta) * tf.sin(theta), 0],
             [0, -1j * tf.exp(1j*theta) * tf.sin(theta), tf.exp(1j*theta) * tf.cos(theta), 0],
             [0, 0, 0, 1]
-        ])
+        ], name=name)
         self._tensor = tf.reshape(self._tensor, (2,2,2,2))
 
 
@@ -186,7 +192,8 @@ class WrapZZPowGate(BaseTFGate):
     def __init__(self, *qubits: List[int],
                  theta: tf.Tensor = None,
                  global_shift: float = None,
-                 dtype = tf.complex64
+                 dtype = tf.complex64,
+                 name=None,
     ):
         """Wrap a ZZPowGate instance.
         """
@@ -197,14 +204,17 @@ class WrapZZPowGate(BaseTFGate):
         self._tensor = self._tensor_from_eigencomponents(self._tensor)
         self._tensor = tf.reshape(self._tensor, (2, 2, 2, 2))
         self._qubits = [qubits[0].x, qubits[1].x]
+        self.name = name
 
     def _eigen_components(self):
         """Overwrite EigenGate np arrays to avoid messy casting."""
         return [
             (tf.constant(0, dtype=self._dtype),
-                tf.convert_to_tensor(np.diag([1, 0, 0, 1]), dtype=self._dtype)),
+                tf.convert_to_tensor(np.diag([1, 0, 0, 1]), dtype=self._dtype,
+                    name="eig({})[0]".format(self.name))),
             (tf.constant(1, dtype=self._dtype),
-                tf.convert_to_tensor(np.diag([0, 1, 1, 0]), dtype=self._dtype)),
+                tf.convert_to_tensor(np.diag([0, 1, 1, 0]), dtype=self._dtype,
+                    name="eig({})[1]".format(self.name))),
         ]
 
 
@@ -240,6 +250,10 @@ def _promote_and_cast(v: Any, dtype=tf.complex64) -> Union[tf.Tensor, tf.Variabl
 # FIXME: is inst always an eigengate..?
 def tf_gate_wrapper(inst: cirq.EigenGate, dtype=tf.complex64) -> BaseTFGate:
 
+    # WARNING: theta is promoted to theta * pi/2 before being passed into the
+    # wrappers. Wrappers must expect to get this rescaled theta in their
+    # tensor op chain.
+
     # todo: notimplemented case checking
     theta = _promote_and_cast(getattr(inst._gate, 'exponent', 1), dtype=dtype)
     # todo: update docs to reflect rad input
@@ -248,7 +262,7 @@ def tf_gate_wrapper(inst: cirq.EigenGate, dtype=tf.complex64) -> BaseTFGate:
     wrapper = ALL_WRAPPERS.get(type(inst._gate), NotImplemented)
     if wrapper is not NotImplemented:
         return wrapper(
-            *inst.qubits, theta=theta, global_shift=global_shift, dtype=dtype)
+            *inst.qubits, theta=theta, global_shift=global_shift, dtype=dtype, name=str(inst))
 
     raise NotImplementedError(
         "gate {} not implemented in gate wrappers".format(type(inst)))
